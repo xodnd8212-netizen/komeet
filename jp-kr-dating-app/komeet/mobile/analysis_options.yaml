@@ -1,0 +1,28 @@
+linter:
+  rules:
+    # General rules
+    always_declare_return_types: true
+    always_specify_types: true
+    prefer_final_locals: true
+    unnecessary_getters_setters: true
+
+    # Flutter specific rules
+    prefer_const_constructors: true
+    prefer_const_literals_to_create_immutables: true
+    prefer_single_quotes: true
+    avoid_print: true
+
+    # Additional rules can be added here
+    # Example:
+    # avoid_unnecessary_containers: true
+    # use_key_in_widget_constructors: true
+
+analyzer:
+  errors:
+    # Enable or disable specific analyzer errors
+    unnecessary_getters_setters: ignore
+    prefer_final_locals: ignore
+    prefer_const_constructors: ignore
+    prefer_const_literals_to_create_immutables: ignore
+
+# You can add more configurations as needed.

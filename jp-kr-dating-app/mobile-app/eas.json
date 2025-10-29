@@ -1,0 +1,34 @@
+{
+  "cli": {
+    "version": ">= 0.48.0"
+  },
+  "build": {
+    "development": {
+      "distribution": "internal"
+    },
+    "production": {
+      "distribution": "store"
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "bundleIdentifier": "com.example.jpkrdatingapp",
+        "teamId": "YOUR_TEAM_ID"
+      },
+      "android": {
+        "package": "com.example.jpkrdatingapp"
+      }
+    }
+  },
+  "hooks": {
+    "postPublish": [
+      {
+        "file": "sentry-expo",
+        "config": {
+          "dsn": "YOUR_SENTRY_DSN"
+        }
+      }
+    ]
+  }
+}

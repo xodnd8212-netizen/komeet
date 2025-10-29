@@ -1,0 +1,37 @@
+{
+  "name": "komeet-backend",
+  "version": "1.0.0",
+  "description": "Backend for Komeet dating app",
+  "main": "src/server.ts",
+  "scripts": {
+    "start": "ts-node src/server.ts",
+    "dev": "ts-node-dev src/server.ts",
+    "test": "jest",
+    "build": "tsc",
+    "migrate": "prisma migrate deploy",
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "cors": "^2.8.5",
+    "helmet": "^4.6.0",
+    "jsonwebtoken": "^8.5.1",
+    "prisma": "^2.30.0",
+    "bcrypt": "^5.0.1",
+    "multer": "^1.4.2",
+    "sentry-node": "^6.13.0"
+  },
+  "devDependencies": {
+    "typescript": "^4.4.4",
+    "ts-node": "^10.4.0",
+    "ts-node-dev": "^1.1.8",
+    "jest": "^27.0.6",
+    "supertest": "^6.1.6",
+    "eslint": "^7.32.0",
+    "prettier": "^2.5.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "license": "MIT"
+}

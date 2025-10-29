@@ -1,0 +1,36 @@
+{
+  "name": "jp-kr-dating-app-server",
+  "version": "1.0.0",
+  "description": "Server for the JP-KR dating app connecting Japanese women and Korean men.",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "ts-node src/index.ts",
+    "dev": "ts-node-dev src/index.ts",
+    "build": "tsc",
+    "migrate": "prisma migrate deploy",
+    "seed": "ts-node src/scripts/seed.ts"
+  },
+  "dependencies": {
+    "express": "^4.17.1",
+    "jsonwebtoken": "^8.5.1",
+    "prisma": "^2.30.0",
+    "zod": "^3.11.6",
+    "axios": "^0.21.1",
+    "cors": "^2.8.5",
+    "helmet": "^4.6.0",
+    "dotenv": "^10.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^4.4.3",
+    "ts-node": "^10.4.0",
+    "ts-node-dev": "^1.1.8",
+    "jest": "^27.0.6",
+    "supertest": "^6.1.6",
+    "eslint": "^7.32.0",
+    "prettier": "^2.4.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "license": "MIT"
+}

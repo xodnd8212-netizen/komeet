@@ -1,0 +1,44 @@
+{
+  "cli": {
+    "version": ">= 0.63.0"
+  },
+  "build": {
+    "development": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "buildType": "simulator"
+      }
+    },
+    "production": {
+      "distribution": "store",
+      "android": {
+        "buildType": "aab"
+      },
+      "ios": {
+        "buildType": "archive"
+      }
+    }
+  },
+  "submit": {
+    "android": {
+      "serviceAccountKeyPath": "./path/to/your/service-account.json"
+    },
+    "ios": {
+      "appleId": "your-apple-id",
+      "ascAppId": "your-app-store-connect-app-id"
+    }
+  },
+  "hooks": {
+    "postPublish": [
+      {
+        "file": "sentry-expo",
+        "config": {
+          "dsn": "your-sentry-dsn"
+        }
+      }
+    ]
+  }
+}
