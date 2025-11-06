@@ -18,7 +18,7 @@ class AppTheme {
       cardColor: card,
     );
     return base.copyWith(
-      textTheme: GoogleFonts.pretendardTextTheme(base.textTheme)
+      textTheme: GoogleFonts.notoSansTextTheme(base.textTheme)
           .apply(bodyColor: text, displayColor: text),
     );
   }

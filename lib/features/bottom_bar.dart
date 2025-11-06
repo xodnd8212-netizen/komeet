@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../theme/theme.dart';
+import '../i18n/i18n.dart';
 
 class BottomScaffold extends StatelessWidget {
   final Widget child;
@@ -9,6 +10,7 @@ class BottomScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final i18n = I18n.of(context);
     return Scaffold(
       body: SafeArea(child: child),
       bottomNavigationBar: Container(
@@ -20,11 +22,11 @@ class BottomScaffold extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _Item(label: '내 프로필',
+            _Item(label: i18n.t('app.profile'),
               icon: index==0?Icons.person:Icons.person_outline,
               onTap: ()=>context.go('/profile')),
             _CenterMatch(onTap: ()=>context.go('/match')),
-            _Item(label: '설정',
+            _Item(label: i18n.t('app.settings'),
               icon: index==2?Icons.settings:Icons.settings_outlined,
               onTap: ()=>context.go('/settings')),
           ],
