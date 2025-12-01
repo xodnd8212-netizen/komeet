@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import '../../theme/theme.dart';
-import '../../services/match_service.dart';
 import '../../services/profile_service.dart';
 import '../../models/profile.dart';
 import '../../widgets/cached_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:go_router/go_router.dart';
-import '../chat/chat_page.dart';
 
 /// 좋아요 알림 페이지 (누가 나를 좋아요 했는지 확인)
 class LikesNotificationPage extends StatelessWidget {
@@ -54,7 +52,9 @@ class LikesNotificationPage extends StatelessWidget {
             itemCount: notifications.length,
             itemBuilder: (context, index) {
               final notification = notifications[index];
-              final fromUserId = notification.data()['fromUserId'] as String;
+              final data = notification.data();
+              final fromUserId = data['fromUserId'] as String?;
+              if (fromUserId == null) return const SizedBox.shrink();
               return FutureBuilder<UserProfile?>(
                 future: ProfileService.getProfile(fromUserId),
                 builder: (context, profileSnapshot) {

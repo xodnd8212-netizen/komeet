@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../theme/theme.dart';
-import '../i18n/i18n.dart';
 import '../services/user_safety_service.dart';
 
 /// 사용자 액션 다이얼로그 (차단, 신고, 언매치)
