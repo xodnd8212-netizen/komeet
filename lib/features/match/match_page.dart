@@ -35,12 +35,18 @@ class _MatchPageState extends State<MatchPage> {
     setState(() => _isLoading = true);
     final tokyoOnly = await PrefsService.getTokyoOnly();
     final maxKm = await PrefsService.getMaxDistanceKm();
+    final minAge = await PrefsService.getMinAge();
+    final maxAge = await PrefsService.getMaxAge();
+    final genderPreference = await PrefsService.getGenderPreference();
     final user = _userPoint ?? const mygeo.GeoPoint(35.6762, 139.6503);
     final result = await MatchService.getRecommendationsWithPagination(
       lat: user.lat,
       lng: user.lng,
       maxDistanceKm: maxKm,
       tokyoOnly: tokyoOnly,
+      minAge: minAge,
+      maxAge: maxAge,
+      genderPreference: genderPreference != 'any' ? genderPreference : null,
       limit: 20,
       lastDocument: null,
     );
@@ -61,12 +67,18 @@ class _MatchPageState extends State<MatchPage> {
     setState(() => _isLoading = true);
     final tokyoOnly = await PrefsService.getTokyoOnly();
     final maxKm = await PrefsService.getMaxDistanceKm();
+    final minAge = await PrefsService.getMinAge();
+    final maxAge = await PrefsService.getMaxAge();
+    final genderPreference = await PrefsService.getGenderPreference();
     final user = _userPoint ?? const mygeo.GeoPoint(35.6762, 139.6503);
     final result = await MatchService.getRecommendationsWithPagination(
       lat: user.lat,
       lng: user.lng,
       maxDistanceKm: maxKm,
       tokyoOnly: tokyoOnly,
+      minAge: minAge,
+      maxAge: maxAge,
+      genderPreference: genderPreference != 'any' ? genderPreference : null,
       limit: 20,
       lastDocument: _lastDoc,
     );
@@ -99,6 +111,20 @@ class _MatchPageState extends State<MatchPage> {
 
   Future<void> _like() async {
     if (_queue.isEmpty) return;
+    
+    // 하루 좋아요 제한 확인
+    final canLike = await PrefsService.canLikeMore();
+    if (!canLike) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('오늘의 좋아요 한도를 모두 사용했습니다. 내일 다시 시도해주세요.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     final current = _queue.first;
     if (current.id == null) {
       setState(() => _queue.removeAt(0));
@@ -106,6 +132,9 @@ class _MatchPageState extends State<MatchPage> {
     }
 
     setState(() => _queue.removeAt(0));
+
+    // 좋아요 카운트 증가
+    await PrefsService.incrementDailyLikeCount();
 
     final isMatch = await MatchService.likeUser(current.id!);
     if (!mounted) return;
@@ -190,6 +219,28 @@ class _MatchPageState extends State<MatchPage> {
     }
   }
 
+  Future<void> _undoLastLike() async {
+    final success = await MatchService.undoLastLike();
+    if (!mounted) return;
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('마지막 좋아요를 취소했습니다.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      await _reloadQueue();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('되돌릴 좋아요가 없습니다.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final i18n = I18n.of(context);
@@ -249,10 +300,19 @@ class _MatchPageState extends State<MatchPage> {
                 color: AppTheme.pink,
                 onTap: _like,
               ),
-              IconButton(
-                onPressed: _reloadQueue,
-                icon: const Icon(Icons.refresh, color: AppTheme.sub),
-                tooltip: 'Reload',
+              FutureBuilder<Map<String, String>?>(
+                future: MatchService.getLastLikeInfo(),
+                builder: (context, snapshot) {
+                  final hasLastLike = snapshot.data != null;
+                  return IconButton(
+                    onPressed: hasLastLike ? _undoLastLike : _reloadQueue,
+                    icon: Icon(
+                      hasLastLike ? Icons.undo : Icons.refresh,
+                      color: AppTheme.sub,
+                    ),
+                    tooltip: hasLastLike ? '되돌리기' : '새로고침',
+                  );
+                },
               ),
               if (_hasMore)
                 OutlinedButton(

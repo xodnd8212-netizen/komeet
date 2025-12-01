@@ -18,6 +18,9 @@ class _SettingsPageState extends State<SettingsPage> {
   double _maxDistance = 30;
   bool _notify = true;
   bool _tokyoOnly = false;
+  int _minAge = 18;
+  int _maxAge = 99;
+  String _genderPreference = 'any';
 
   @override
   void initState() {
@@ -29,11 +32,17 @@ class _SettingsPageState extends State<SettingsPage> {
     final d = await PrefsService.getMaxDistanceKm();
     final n = await PrefsService.getNotificationsEnabled();
     final t = await PrefsService.getTokyoOnly();
+    final minAge = await PrefsService.getMinAge();
+    final maxAge = await PrefsService.getMaxAge();
+    final genderPref = await PrefsService.getGenderPreference();
     if (!mounted) return;
     setState(() {
       _maxDistance = d;
       _notify = n;
       _tokyoOnly = t;
+      _minAge = minAge;
+      _maxAge = maxAge;
+      _genderPreference = genderPref;
     });
     await NotificationService.init();
   }
@@ -157,6 +166,109 @@ class _SettingsPageState extends State<SettingsPage> {
               setState(() => _tokyoOnly = v);
               PrefsService.setTokyoOnly(v);
             },
+          ),
+          const SizedBox(height: 24),
+          Text(
+            '나이 범위',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppTheme.text,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('최소 나이: $_minAge세', style: const TextStyle(color: AppTheme.text)),
+                    Slider(
+                      min: 18,
+                      max: 99,
+                      divisions: 81,
+                      value: _minAge.toDouble(),
+                      label: '$_minAge세',
+                      onChanged: (v) {
+                        setState(() {
+                          _minAge = v.toInt();
+                          if (_minAge > _maxAge) _maxAge = _minAge;
+                        });
+                      },
+                      onChangeEnd: (v) {
+                        PrefsService.setMinAge(v.toInt());
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('최대 나이: $_maxAge세', style: const TextStyle(color: AppTheme.text)),
+                    Slider(
+                      min: 18,
+                      max: 99,
+                      divisions: 81,
+                      value: _maxAge.toDouble(),
+                      label: '$_maxAge세',
+                      onChanged: (v) {
+                        setState(() {
+                          _maxAge = v.toInt();
+                          if (_maxAge < _minAge) _minAge = _maxAge;
+                        });
+                      },
+                      onChangeEnd: (v) {
+                        PrefsService.setMaxAge(v.toInt());
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Text(
+            '성별 선호도',
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppTheme.text,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            children: [
+              _GenderOption(
+                label: '전체',
+                value: 'any',
+                selected: _genderPreference,
+                onChanged: (v) {
+                  setState(() => _genderPreference = v);
+                  PrefsService.setGenderPreference(v);
+                },
+              ),
+              _GenderOption(
+                label: '남성',
+                value: 'male',
+                selected: _genderPreference,
+                onChanged: (v) {
+                  setState(() => _genderPreference = v);
+                  PrefsService.setGenderPreference(v);
+                },
+              ),
+              _GenderOption(
+                label: '여성',
+                value: 'female',
+                selected: _genderPreference,
+                onChanged: (v) {
+                  setState(() => _genderPreference = v);
+                  PrefsService.setGenderPreference(v);
+                },
+              ),
+            ],
           ),
           const SizedBox(height: 24),
           ElevatedButton(
@@ -296,6 +408,35 @@ class _LanguageSelector extends StatelessWidget {
         buildOption(AppLocale.ko, i18n.t('settings.lang.ko')),
         buildOption(AppLocale.ja, i18n.t('settings.lang.ja')),
       ],
+    );
+  }
+}
+
+class _GenderOption extends StatelessWidget {
+  final String label;
+  final String value;
+  final String selected;
+  final ValueChanged<String> onChanged;
+
+  const _GenderOption({
+    required this.label,
+    required this.value,
+    required this.selected,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = selected == value;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => onChanged(value),
+      selectedColor: AppTheme.pink.withValues(alpha: 0.2),
+      labelStyle: TextStyle(
+        color: isSelected ? AppTheme.pink : AppTheme.text,
+        fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
+      ),
     );
   }
 }

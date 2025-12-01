@@ -464,17 +464,76 @@ class _ProfilePageState extends State<ProfilePage> {
                           );
                         },
                       ),
-                      ListTile(
-                        leading: const Icon(
-                          Icons.notifications,
-                          color: AppTheme.text,
-                        ),
-                        title: const Text(
-                          '알림 설정',
-                          style: TextStyle(color: AppTheme.text),
-                        ),
-                        onTap: () {
-                          // TODO: 알림 설정 페이지
+                      StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('notifications')
+                            .where('type', isEqualTo: 'like')
+                            .where('read', isEqualTo: false)
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          final unreadCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
+                          return ListTile(
+                            leading: Stack(
+                              children: [
+                                const Icon(
+                                  Icons.favorite,
+                                  color: AppTheme.text,
+                                ),
+                                if (unreadCount > 0)
+                                  Positioned(
+                                    right: 0,
+                                    top: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(
+                                        color: AppTheme.pink,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 16,
+                                        minHeight: 16,
+                                      ),
+                                      child: Text(
+                                        unreadCount > 9 ? '9+' : '$unreadCount',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            title: const Text(
+                              '나를 좋아요한 사람들',
+                              style: TextStyle(color: AppTheme.text),
+                            ),
+                            trailing: unreadCount > 0
+                                ? Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.pink,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      '$unreadCount',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  )
+                                : null,
+                            onTap: () {
+                              context.push('/likes');
+                            },
+                          );
                         },
                       ),
                       ListTile(

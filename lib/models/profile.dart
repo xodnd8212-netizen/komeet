@@ -2,6 +2,7 @@ class UserProfile {
   final String? id;
   final String name;
   final int age;
+  final String gender; // 'male', 'female', 'other'
   final String city;
   final String bio;
   final List<String> interests;
@@ -17,6 +18,7 @@ class UserProfile {
     this.id,
     required this.name,
     required this.age,
+    this.gender = 'other',
     required this.city,
     required this.bio,
     this.interests = const [],
@@ -33,6 +35,7 @@ class UserProfile {
     return {
       'name': name,
       'age': age,
+      'gender': gender,
       'city': city,
       'bio': bio,
       'interests': interests,
@@ -51,6 +54,7 @@ class UserProfile {
       id: id,
       name: map['name'] ?? '',
       age: map['age'] ?? 0,
+      gender: map['gender'] ?? 'other',
       city: map['city'] ?? '',
       bio: map['bio'] ?? '',
       interests: List<String>.from(map['interests'] ?? []),
@@ -74,6 +78,7 @@ class UserProfile {
     String? id,
     String? name,
     int? age,
+    String? gender,
     String? city,
     String? bio,
     List<String>? interests,
@@ -89,6 +94,7 @@ class UserProfile {
       id: id ?? this.id,
       name: name ?? this.name,
       age: age ?? this.age,
+      gender: gender ?? this.gender,
       city: city ?? this.city,
       bio: bio ?? this.bio,
       interests: interests ?? this.interests,

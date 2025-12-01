@@ -18,6 +18,7 @@ import 'services/prefs.dart';
 import 'features/auth/login_page.dart';
 import 'features/admin/admin_login_page.dart';
 import 'features/admin/admin_dashboard_page.dart';
+import 'features/notifications/likes_notification_page.dart';
 import 'services/admin_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -98,6 +99,7 @@ final router = GoRouter(
     ),
     GoRoute(path: '/coin-store', builder: (_, __) => const CoinStorePage()),
     GoRoute(path: '/chat-list', builder: (_, __) => const ChatListPage()),
+    GoRoute(path: '/likes', builder: (_, __) => const LikesNotificationPage()),
     GoRoute(path: '/admin/login', builder: (_, __) => const AdminLoginPage()),
     GoRoute(path: '/admin', builder: (_, __) => const AdminDashboardPage()),
   ],

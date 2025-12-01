@@ -30,10 +30,26 @@ class MatchService {
       if (currentUserId == null) return false;
 
       // 좋아요 저장
-      await _firestore.collection(_likesCollection).add({
+      final likeDoc = await _firestore.collection(_likesCollection).add({
         'fromUserId': currentUserId,
         'toUserId': targetUserId,
         'timestamp': DateTime.now().toIso8601String(),
+      });
+
+      // 마지막 좋아요 저장 (되돌리기용)
+      await _firestore.collection('users').doc(currentUserId).set({
+        'lastLikeId': likeDoc.id,
+        'lastLikeUserId': targetUserId,
+        'lastLikeTimestamp': DateTime.now().toIso8601String(),
+      }, SetOptions(merge: true));
+
+      // 상대방에게 좋아요 알림 저장
+      await _firestore.collection('notifications').add({
+        'type': 'like',
+        'userId': targetUserId,
+        'fromUserId': currentUserId,
+        'createdAt': FieldValue.serverTimestamp(),
+        'read': false,
       });
 
       // 상대방이 나를 좋아요 했는지 확인
@@ -53,6 +69,61 @@ class MatchService {
       return false; // 단방향 좋아요
     } catch (e) {
       return false;
+    }
+  }
+
+  /// 마지막 좋아요 되돌리기
+  static Future<bool> undoLastLike() async {
+    try {
+      final currentUserId = AuthService.currentUser?.uid;
+      if (currentUserId == null) return false;
+
+      final userDoc = await _firestore.collection('users').doc(currentUserId).get();
+      if (!userDoc.exists) return false;
+
+      final data = userDoc.data()!;
+      final lastLikeId = data['lastLikeId'] as String?;
+      final lastLikeUserId = data['lastLikeUserId'] as String?;
+
+      if (lastLikeId == null || lastLikeUserId == null) return false;
+
+      // 좋아요 삭제
+      await _firestore.collection(_likesCollection).doc(lastLikeId).delete();
+
+      // 마지막 좋아요 정보 삭제
+      await _firestore.collection('users').doc(currentUserId).update({
+        'lastLikeId': FieldValue.delete(),
+        'lastLikeUserId': FieldValue.delete(),
+        'lastLikeTimestamp': FieldValue.delete(),
+      });
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// 마지막 좋아요 정보 가져오기
+  static Future<Map<String, String>?> getLastLikeInfo() async {
+    try {
+      final currentUserId = AuthService.currentUser?.uid;
+      if (currentUserId == null) return null;
+
+      final userDoc = await _firestore.collection('users').doc(currentUserId).get();
+      if (!userDoc.exists) return null;
+
+      final data = userDoc.data()!;
+      final lastLikeId = data['lastLikeId'] as String?;
+      final lastLikeUserId = data['lastLikeUserId'] as String?;
+
+      if (lastLikeId == null || lastLikeUserId == null) return null;
+
+      return {
+        'likeId': lastLikeId,
+        'userId': lastLikeUserId,
+      };
+    } catch (e) {
+      return null;
     }
   }
 
@@ -141,13 +212,16 @@ class MatchService {
     bool tokyoOnly = false,
     int limit = 20,
   }) async {
-    final result = await getRecommendationsWithPagination(
-      lat: lat,
-      lng: lng,
-      maxDistanceKm: maxDistanceKm,
-      tokyoOnly: tokyoOnly,
-      limit: limit,
-    );
+      final result = await getRecommendationsWithPagination(
+        lat: lat,
+        lng: lng,
+        maxDistanceKm: maxDistanceKm,
+        tokyoOnly: tokyoOnly,
+        minAge: null,
+        maxAge: null,
+        genderPreference: null,
+        limit: limit,
+      );
     return result.profiles;
   }
 
@@ -157,6 +231,9 @@ class MatchService {
     required double lng,
     required double maxDistanceKm,
     bool tokyoOnly = false,
+    int? minAge,
+    int? maxAge,
+    String? genderPreference,
     int limit = 20,
     DocumentSnapshot? lastDocument,
   }) async {
@@ -203,7 +280,19 @@ class MatchService {
 
       // 필터링
       final filtered = allProfiles.where((p) {
+        // 도쿄 필터
         if (tokyoOnly && p.city.toLowerCase() != 'tokyo') return false;
+        
+        // 나이 필터
+        if (minAge != null && p.age < minAge) return false;
+        if (maxAge != null && p.age > maxAge) return false;
+        
+        // 성별 선호도 필터
+        if (genderPreference != null && genderPreference != 'any') {
+          if (p.gender != genderPreference) return false;
+        }
+        
+        // 거리 필터
         final distance = geo.haversineKm(
           geo.GeoPoint(lat, lng),
           geo.GeoPoint(p.lat!, p.lng!),
