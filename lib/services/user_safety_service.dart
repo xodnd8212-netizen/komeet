@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/logger.dart';
 import 'auth_service.dart';
 
 /// 사용자 안전 관련 기능 (차단, 신고, 언매치)
@@ -23,8 +24,14 @@ class UserSafetyService {
       // 매칭이 있다면 언매치 처리
       await unmatchUser(targetUserId);
 
+      AppLogger.info('사용자 차단', {
+        'blockerId': currentUserId,
+        'blockedId': targetUserId,
+      });
+
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('사용자 차단 실패', e, stackTrace);
       return false;
     }
   }
@@ -45,8 +52,15 @@ class UserSafetyService {
       if (snapshot.docs.isEmpty) return false;
 
       await snapshot.docs.first.reference.delete();
+      
+      AppLogger.info('사용자 차단 해제', {
+        'userId': currentUserId,
+        'unblockedId': targetUserId,
+      });
+
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('사용자 차단 해제 실패', e, stackTrace);
       return false;
     }
   }
@@ -119,8 +133,15 @@ class UserSafetyService {
         'status': 'pending', // pending, reviewed, resolved
       });
 
+      AppLogger.info('사용자 신고', {
+        'reporterId': currentUserId,
+        'reportedId': targetUserId,
+        'reason': reason,
+      });
+
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('사용자 신고 실패', e, stackTrace);
       return false;
     }
   }

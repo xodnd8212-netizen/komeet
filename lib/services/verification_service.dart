@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/logger.dart';
 import 'auth_service.dart';
 
 /// 프로필 인증 서비스
@@ -25,8 +26,11 @@ class VerificationService {
         'reviewedBy': null,
       });
 
+      AppLogger.info('인증 요청 제출', {'userId': currentUserId});
+
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('인증 요청 제출 실패', e, stackTrace);
       return false;
     }
   }

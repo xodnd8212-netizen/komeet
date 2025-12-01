@@ -15,11 +15,13 @@ import 'services/notifications.dart';
 import 'services/push_notifications.dart';
 import 'services/auth_service.dart';
 import 'services/prefs.dart';
+import 'services/offline_service.dart';
 import 'features/auth/login_page.dart';
 import 'features/admin/admin_login_page.dart';
 import 'features/admin/admin_dashboard_page.dart';
 import 'features/notifications/likes_notification_page.dart';
 import 'services/admin_service.dart';
+import 'utils/logger.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -130,6 +132,11 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+
+    AppLogger.info('Firebase 초기화 완료');
+
+    // 오프라인 지속성 활성화
+    await OfflineService.enablePersistence();
 
     // FCM 초기화 (Firebase 초기화 후)
     await PushNotificationService.init();

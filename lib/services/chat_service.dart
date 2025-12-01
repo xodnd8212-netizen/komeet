@@ -1,5 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/chat_message.dart';
+import '../utils/logger.dart';
+import '../utils/rate_limiter.dart';
+import '../utils/sanitizer.dart';
 import 'auth_service.dart';
 import 'profile_service.dart';
 
@@ -38,8 +41,14 @@ class ChatService {
           .doc(roomId)
           .set(room.toMap());
 
+      AppLogger.info('채팅방 생성/조회', {
+        'roomId': roomId,
+        'userId': currentUserId,
+        'otherUserId': otherUserId,
+      });
       return roomId;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('채팅방 생성 실패', e, stackTrace);
       return null;
     }
   }
@@ -51,15 +60,40 @@ class ChatService {
   }) async {
     try {
       final senderId = AuthService.currentUser?.uid;
-      if (senderId == null) return null;
+      if (senderId == null) {
+        AppLogger.warning('메시지 전송 실패: 로그인 필요');
+        return null;
+      }
+
+      // Rate Limiting 확인 (1분에 최대 20개)
+      if (!RateLimiter.isAllowed('send_message', 20, 60)) {
+        final remaining = RateLimiter.getRemainingSeconds('send_message', 20, 60);
+        AppLogger.warning('메시지 전송 Rate Limit 초과', {
+          'userId': senderId,
+          'remainingSeconds': remaining,
+        });
+        throw Exception('너무 빠르게 메시지를 보내고 있습니다. ${remaining != null ? '${remaining}초 후 다시 시도해주세요.' : '잠시 후 다시 시도해주세요.'}');
+      }
+
+      // 메시지 Sanitization (XSS 방지)
+      final sanitizedText = Sanitizer.sanitizeChatMessage(text);
+      if (sanitizedText.isEmpty && imageUrl == null) {
+        throw Exception('메시지 내용을 입력해주세요.');
+      }
 
       final message = ChatMessage(
         chatId: chatId,
         senderId: senderId,
-        text: text,
+        text: sanitizedText,
         imageUrl: imageUrl,
         timestamp: DateTime.now(),
       );
+
+      AppLogger.info('메시지 전송', {
+        'chatId': chatId,
+        'senderId': senderId,
+        'hasImage': imageUrl != null,
+      });
 
       final docRef = await _firestore
           .collection(_messagesCollection)
@@ -106,8 +140,9 @@ class ChatService {
       }
 
       return docRef.id;
-    } catch (e) {
-      return null;
+    } catch (e, stackTrace) {
+      AppLogger.error('메시지 전송 실패', e, stackTrace);
+      rethrow;
     }
   }
 

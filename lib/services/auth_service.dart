@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import '../utils/logger.dart';
+import '../utils/sanitizer.dart';
 
 class AuthService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -106,13 +108,26 @@ class AuthService {
     String password,
   ) async {
     try {
-      return await _auth.signInWithEmailAndPassword(
-        email: email,
+      // 이메일 정규화 및 검증
+      final normalizedEmail = Sanitizer.normalizeEmail(email);
+      if (normalizedEmail == null) {
+        throw Exception('올바른 이메일 형식이 아닙니다.');
+      }
+
+      AppLogger.info('이메일 로그인 시도', {'email': normalizedEmail});
+      
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: normalizedEmail,
         password: password,
       );
-    } on FirebaseAuthException catch (e) {
+
+      AppLogger.info('이메일 로그인 성공', {'userId': credential.user?.uid});
+      return credential;
+    } on FirebaseAuthException catch (e, stackTrace) {
+      AppLogger.error('이메일 로그인 실패 (Firebase)', e, stackTrace);
       throw _handleAuthException(e);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('이메일 로그인 실패', e, stackTrace);
       throw Exception('로그인 중 오류가 발생했습니다: $e');
     }
   }
@@ -122,13 +137,31 @@ class AuthService {
     String password,
   ) async {
     try {
-      return await _auth.createUserWithEmailAndPassword(
-        email: email,
+      // 이메일 정규화 및 검증
+      final normalizedEmail = Sanitizer.normalizeEmail(email);
+      if (normalizedEmail == null) {
+        throw Exception('올바른 이메일 형식이 아닙니다.');
+      }
+
+      // 비밀번호 검증
+      if (password.length < 6) {
+        throw Exception('비밀번호는 최소 6자 이상이어야 합니다.');
+      }
+
+      AppLogger.info('이메일 회원가입 시도', {'email': normalizedEmail});
+      
+      final credential = await _auth.createUserWithEmailAndPassword(
+        email: normalizedEmail,
         password: password,
       );
-    } on FirebaseAuthException catch (e) {
+
+      AppLogger.info('이메일 회원가입 성공', {'userId': credential.user?.uid});
+      return credential;
+    } on FirebaseAuthException catch (e, stackTrace) {
+      AppLogger.error('이메일 회원가입 실패 (Firebase)', e, stackTrace);
       throw _handleAuthException(e);
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('이메일 회원가입 실패', e, stackTrace);
       throw Exception('회원가입 중 오류가 발생했습니다: $e');
     }
   }

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/logger.dart';
 import 'auth_service.dart';
 
 /// 프리미엄 기능 서비스 (부스트, 슈퍼라이크 등)
@@ -18,8 +19,14 @@ class PremiumService {
         'boostEndTime': boostEndTime.toIso8601String(),
       }, SetOptions(merge: true));
 
+      AppLogger.info('부스트 활성화', {
+        'userId': currentUserId,
+        'endTime': boostEndTime.toIso8601String(),
+      });
+
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('부스트 활성화 실패', e, stackTrace);
       return false;
     }
   }
@@ -73,8 +80,14 @@ class PremiumService {
         'superLikeCount': FieldValue.increment(-1),
       }, SetOptions(merge: true));
 
+      AppLogger.info('슈퍼라이크 전송', {
+        'fromUserId': currentUserId,
+        'toUserId': targetUserId,
+      });
+
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('슈퍼라이크 전송 실패', e, stackTrace);
       return false;
     }
   }

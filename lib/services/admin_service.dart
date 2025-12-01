@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../utils/logger.dart';
 import 'auth_service.dart';
 
 class AdminService {
@@ -12,8 +13,15 @@ class AdminService {
       if (user == null) return false;
 
       final doc = await _firestore.collection(_collection).doc(user.uid).get();
-      return doc.exists && (doc.data()?['isAdmin'] == true);
-    } catch (e) {
+      final isAdmin = doc.exists && (doc.data()?['isAdmin'] == true);
+      
+      if (isAdmin) {
+        AppLogger.info('어드민 확인', {'userId': user.uid});
+      }
+      
+      return isAdmin;
+    } catch (e, stackTrace) {
+      AppLogger.error('어드민 확인 실패', e, stackTrace);
       return false;
     }
   }
@@ -55,7 +63,10 @@ class AdminService {
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
-    } catch (e) {
+
+      AppLogger.info('어드민 계정 생성', {'uid': uid, 'email': email});
+    } catch (e, stackTrace) {
+      AppLogger.error('어드민 계정 생성 실패', e, stackTrace);
       throw Exception('어드민 계정 생성 실패: $e');
     }
   }
@@ -75,7 +86,10 @@ class AdminService {
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
-    } catch (e) {
+
+      AppLogger.info('사용자 어드민 승격', {'uid': uid, 'adminName': adminName});
+    } catch (e, stackTrace) {
+      AppLogger.error('어드민 승격 실패', e, stackTrace);
       throw Exception('어드민 승격 실패: $e');
     }
   }

@@ -23,7 +23,7 @@ class AppLogger {
     }
   }
 
-  static void error(String message, [Object? error, StackTrace? stackTrace]) {
+  static void error(String message, [Object? error, StackTrace? stackTrace, Map<String, dynamic>? data]) {
     final timestamp = DateTime.now().toIso8601String();
     if (kDebugMode) {
       print('[ERROR] $timestamp: $message');
@@ -32,6 +32,9 @@ class AppLogger {
       }
       if (stackTrace != null) {
         print('  StackTrace: $stackTrace');
+      }
+      if (data != null) {
+        print('  Data: $data');
       }
     }
     // 프로덕션에서는 Firebase Crashlytics로 전송
