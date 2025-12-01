@@ -4,6 +4,7 @@ class PrefsService {
   static const _kMaxDistance = 'prefs.max_distance_km';
   static const _kNotify = 'prefs.notifications_enabled';
   static const _kTokyoOnly = 'prefs.filter.tokyo_only';
+  static const _kOnboardingCompleted = 'prefs.onboarding_completed';
 
   static Future<double> getMaxDistanceKm() async {
     final p = await SharedPreferences.getInstance();
@@ -33,6 +34,16 @@ class PrefsService {
   static Future<void> setTokyoOnly(bool value) async {
     final p = await SharedPreferences.getInstance();
     await p.setBool(_kTokyoOnly, value);
+  }
+
+  static Future<bool> getOnboardingCompleted() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getBool(_kOnboardingCompleted) ?? false;
+  }
+
+  static Future<void> setOnboardingCompleted(bool value) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setBool(_kOnboardingCompleted, value);
   }
 }
 

@@ -5,7 +5,7 @@ import '../i18n/i18n.dart';
 
 class BottomScaffold extends StatelessWidget {
   final Widget child;
-  final int index; // 0=프로필, 1=지금 매칭, 2=설정
+  final int index; // 0=프로필, 1=지금 매칭, 2=채팅, 3=설정
   const BottomScaffold({super.key, required this.child, required this.index});
 
   @override
@@ -18,16 +18,21 @@ class BottomScaffold extends StatelessWidget {
           color: AppTheme.card,
           border: Border(top: BorderSide(color: AppTheme.line)),
         ),
-        padding: const EdgeInsets.fromLTRB(16,10,16,12),
+        padding: const EdgeInsets.fromLTRB(8,10,8,12),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _Item(label: i18n.t('app.profile'),
               icon: index==0?Icons.person:Icons.person_outline,
               onTap: ()=>context.go('/profile')),
-            _CenterMatch(onTap: ()=>context.go('/match')),
+            _Item(label: i18n.t('app.match_now'),
+              icon: index==1?Icons.favorite:Icons.favorite_border,
+              onTap: ()=>context.go('/match')),
+            _Item(label: i18n.t('app.chat'),
+              icon: index==2?Icons.chat_bubble:Icons.chat_bubble_outline,
+              onTap: ()=>context.go('/chat-list')),
             _Item(label: i18n.t('app.settings'),
-              icon: index==2?Icons.settings:Icons.settings_outlined,
+              icon: index==3?Icons.settings:Icons.settings_outlined,
               onTap: ()=>context.go('/settings')),
           ],
         ),
@@ -44,29 +49,12 @@ class _Item extends StatelessWidget {
   Widget build(BuildContext context) => InkWell(
     onTap: onTap,
     child: SizedBox(
-      width: 90,
+      width: 70,
       child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Icon(icon, color: AppTheme.text),
+        Icon(icon, color: AppTheme.text, size: 24),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.sub)),
+        Text(label, style: const TextStyle(fontSize: 10, color: AppTheme.sub)),
       ]),
-    ),
-  );
-}
-
-class _CenterMatch extends StatelessWidget {
-  final VoidCallback onTap;
-  const _CenterMatch({required this.onTap});
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
-    child: Container(
-      width: 64, height: 64,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: LinearGradient(colors: [Color(0xFFFF6EA9), Color(0xFFFF4F7D)]),
-      ),
-      child: const Icon(Icons.favorite, color: Colors.white),
     ),
   );
 }

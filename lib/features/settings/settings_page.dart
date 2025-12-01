@@ -3,6 +3,10 @@ import '../../theme/theme.dart';
 import '../../i18n/i18n.dart';
 import '../../services/prefs.dart';
 import '../../services/notifications.dart';
+import '../../services/auth_service.dart';
+import '../../services/prefs.dart' as prefs_ext; // for onboarding reset
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:go_router/go_router.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -55,6 +59,21 @@ class _SettingsPageState extends State<SettingsPage> {
             i18n.t('settings.subtitle'),
             style: const TextStyle(color: AppTheme.sub),
           ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: AppTheme.pink.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              i18n.t('settings.age_badge'),
+              style: const TextStyle(
+                color: AppTheme.pink,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
           Text(
             i18n.t('settings.language'),
@@ -64,7 +83,7 @@ class _SettingsPageState extends State<SettingsPage> {
             ),
           ),
           const SizedBox(height: 8),
-          _LanguageSelector(),
+          const _LanguageSelector(),
           const SizedBox(height: 24),
           Text(
             i18n.t('settings.max_distance'),
@@ -77,11 +96,11 @@ class _SettingsPageState extends State<SettingsPage> {
             children: [
               Expanded(
                 child: Slider(
-                  min: 1,
-                  max: 100,
-                  divisions: 99,
+                  min: 0.1,
+                  max: 200,
+                  divisions: 1999,
                   value: _maxDistance,
-                  label: _maxDistance.toStringAsFixed(0),
+                  label: _maxDistance.toStringAsFixed(1),
                   onChanged: (v) {
                     setState(() => _maxDistance = v);
                   },
@@ -92,7 +111,7 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               const SizedBox(width: 8),
               Text(
-                '${_maxDistance.toStringAsFixed(0)} km',
+                '${_maxDistance.toStringAsFixed(1)} km',
                 style: const TextStyle(color: AppTheme.sub),
               ),
             ],
@@ -139,12 +158,105 @@ class _SettingsPageState extends State<SettingsPage> {
               PrefsService.setTokyoOnly(v);
             },
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () => Navigator.of(
               context,
             ).push(MaterialPageRoute(builder: (_) => const _ChatDemoEntry())),
             child: Text(i18n.t('settings.open_chat_demo')),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            i18n.t('settings.policy_title'),
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              color: AppTheme.text,
+            ),
+          ),
+          const SizedBox(height: 8),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              i18n.t('coin.store_title'),
+              style: const TextStyle(color: AppTheme.text),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: AppTheme.sub),
+            onTap: () => context.push('/coin-store'),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              i18n.t('policy.community'),
+              style: const TextStyle(color: AppTheme.text),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: AppTheme.sub),
+            onTap: () => context.push('/policy/community'),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              i18n.t('policy.terms'),
+              style: const TextStyle(color: AppTheme.text),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: AppTheme.sub),
+            onTap: () => context.push('/policy/terms'),
+          ),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              i18n.t('policy.privacy'),
+              style: const TextStyle(color: AppTheme.text),
+            ),
+            trailing: const Icon(Icons.chevron_right, color: AppTheme.sub),
+            onTap: () => context.push('/policy/privacy'),
+          ),
+          const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () async {
+              await AuthService.signOut();
+              if (context.mounted) {
+                context.go('/login');
+              }
+            },
+            icon: const Icon(Icons.logout, color: AppTheme.pink),
+            label: const Text('로그아웃', style: TextStyle(color: AppTheme.pink)),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppTheme.pink),
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () async {
+              await prefs_ext.PrefsService.setOnboardingCompleted(false);
+              if (!context.mounted) return;
+              context.go('/onboarding');
+            },
+            icon: const Icon(Icons.refresh, color: AppTheme.sub),
+            label: Text(
+              i18n.t('settings.reset_onboarding'),
+              style: const TextStyle(color: AppTheme.sub),
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () async {
+              try {
+                // 메모리 캐시 비우기
+                PaintingBinding.instance.imageCache.clear();
+                PaintingBinding.instance.imageCache.clearLiveImages();
+                // 디스크 캐시 비우기 (cached_network_image 기반)
+                await DefaultCacheManager().emptyCache();
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(i18n.t('settings.cache_cleared'))),
+                );
+              } catch (_) {}
+            },
+            icon: const Icon(Icons.cleaning_services, color: AppTheme.sub),
+            label: Text(
+              i18n.t('settings.clear_cache'),
+              style: const TextStyle(color: AppTheme.sub),
+            ),
           ),
         ],
       ),
@@ -153,35 +265,36 @@ class _SettingsPageState extends State<SettingsPage> {
 }
 
 class _LanguageSelector extends StatelessWidget {
+  const _LanguageSelector();
+
   @override
   Widget build(BuildContext context) {
     final i18n = I18n.of(context);
     final state = I18nProvider.of(context);
     final AppLocale current = i18n.locale;
-    return Column(
+
+    RadioMenuButton<AppLocale> buildOption(AppLocale value, String label) {
+      return RadioMenuButton<AppLocale>(
+        value: value,
+        groupValue: current,
+        onChanged: (selected) {
+          if (selected != null) {
+            state.setLocale(selected);
+          }
+        },
+        style: ButtonStyle(
+          foregroundColor: WidgetStateProperty.all<Color>(AppTheme.text),
+        ),
+        child: Text(label),
+      );
+    }
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
       children: [
-        RadioListTile<AppLocale>(
-          value: AppLocale.ko,
-          groupValue: current,
-          onChanged: (v) {
-            if (v != null) state.setLocale(v);
-          },
-          title: Text(
-            i18n.t('settings.lang.ko'),
-            style: const TextStyle(color: AppTheme.text),
-          ),
-        ),
-        RadioListTile<AppLocale>(
-          value: AppLocale.ja,
-          groupValue: current,
-          onChanged: (v) {
-            if (v != null) state.setLocale(v);
-          },
-          title: Text(
-            i18n.t('settings.lang.ja'),
-            style: const TextStyle(color: AppTheme.text),
-          ),
-        ),
+        buildOption(AppLocale.ko, i18n.t('settings.lang.ko')),
+        buildOption(AppLocale.ja, i18n.t('settings.lang.ja')),
       ],
     );
   }

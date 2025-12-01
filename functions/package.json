@@ -1,0 +1,30 @@
+{
+  "name": "komeet-functions",
+  "description": "Cloud Functions for Komeet coin and payment system",
+  "version": "0.1.0",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint --ext .ts src",
+    "deploy": "npm run build && firebase deploy --only functions",
+    "firebase": "firebase"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^4.4.1",
+    "google-auth-library": "^9.7.0",
+    "axios": "^1.7.7",
+    "dayjs": "^1.11.11",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "eslint": "^8.56.0",
+    "eslint-config-google": "^0.14.0",
+    "eslint-plugin-import": "^2.29.1",
+    "firebase-functions-test": "^3.1.0",
+    "typescript": "^5.4.5"
+  }
+}

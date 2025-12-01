@@ -12,8 +12,12 @@ dependencies:
   dio: ^4.0.0
   flutter_local_notifications: ^9.0.0
   firebase_core: ^2.0.0
-  firebase_auth: ^3.0.0
+  firebase_auth: ^4.16.0
+  firebase_messaging: ^14.0.0
+  cloud_firestore: ^4.0.0
+  firebase_storage: ^11.0.0
   image_picker: ^0.8.0
+  cached_network_image: ^3.3.0
   sentry_flutter: ^6.0.0
 dev_dependencies:
   flutter_test:

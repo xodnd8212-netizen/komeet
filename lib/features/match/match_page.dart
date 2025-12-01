@@ -1,12 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../theme/theme.dart';
 import '../../i18n/i18n.dart';
-import 'dummy_profiles.dart';
 import 'package:go_router/go_router.dart';
 import '../chat/chat_page.dart';
 import '../../services/prefs.dart';
-import '../../services/geo.dart';
+import '../../services/geo.dart' as mygeo;
 import '../../services/location_service.dart';
+import '../../services/match_service.dart';
+import '../../models/profile.dart';
+import '../../widgets/cached_image.dart';
+import '../../widgets/user_action_dialog.dart';
+import '../../services/premium_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class MatchPage extends StatefulWidget {
   const MatchPage({super.key});
@@ -15,36 +20,66 @@ class MatchPage extends StatefulWidget {
 }
 
 class _MatchPageState extends State<MatchPage> {
-  final List<ProfileCardData> _queue = [];
+  final List<UserProfile> _queue = [];
+  bool _isLoading = true;
+  DocumentSnapshot? _lastDoc;
+  bool _hasMore = false;
 
   @override
   void initState() {
     super.initState();
-    _reloadQueue();
     _loadLocation();
   }
 
   Future<void> _reloadQueue() async {
+    setState(() => _isLoading = true);
     final tokyoOnly = await PrefsService.getTokyoOnly();
     final maxKm = await PrefsService.getMaxDistanceKm();
-    // 데모: 사용자 위치를 도쿄 중심으로 가정
-    final user = _userPoint ?? const GeoPoint(35.6762, 139.6503);
-    final base = tokyoOnly
-        ? demoProfiles.where((p) => p.city.toLowerCase() == 'tokyo').toList()
-        : List.of(demoProfiles);
-    final list = base.where((p) {
-      final d = haversineKm(user, GeoPoint(p.lat, p.lng));
-      return d <= maxKm;
-    }).toList();
+    final user = _userPoint ?? const mygeo.GeoPoint(35.6762, 139.6503);
+    final result = await MatchService.getRecommendationsWithPagination(
+      lat: user.lat,
+      lng: user.lng,
+      maxDistanceKm: maxKm,
+      tokyoOnly: tokyoOnly,
+      limit: 20,
+      lastDocument: null,
+    );
+
     if (!mounted) return;
     setState(() {
       _queue
         ..clear()
-        ..addAll(list);
+        ..addAll(result.profiles);
+      _isLoading = false;
+      _lastDoc = result.lastDocument;
+      _hasMore = result.hasMore;
     });
   }
 
-  GeoPoint? _userPoint;
+  Future<void> _loadMore() async {
+    if (!_hasMore || _isLoading) return;
+    setState(() => _isLoading = true);
+    final tokyoOnly = await PrefsService.getTokyoOnly();
+    final maxKm = await PrefsService.getMaxDistanceKm();
+    final user = _userPoint ?? const mygeo.GeoPoint(35.6762, 139.6503);
+    final result = await MatchService.getRecommendationsWithPagination(
+      lat: user.lat,
+      lng: user.lng,
+      maxDistanceKm: maxKm,
+      tokyoOnly: tokyoOnly,
+      limit: 20,
+      lastDocument: _lastDoc,
+    );
+    if (!mounted) return;
+    setState(() {
+      _queue.addAll(result.profiles);
+      _isLoading = false;
+      _lastDoc = result.lastDocument;
+      _hasMore = result.hasMore;
+    });
+  }
+
+  mygeo.GeoPoint? _userPoint;
   Future<void> _loadLocation() async {
     final gp = await LocationService.getCurrentLocation();
     if (gp != null && mounted) {
@@ -62,14 +97,97 @@ class _MatchPageState extends State<MatchPage> {
     });
   }
 
-  void _like() {
+  Future<void> _like() async {
     if (_queue.isEmpty) return;
     final current = _queue.first;
-    setState(() {
-      _queue.removeAt(0);
-    });
-    // 매칭 로직/이벤트 훅은 이후 연결
-    context.go('/chat', extra: ChatArgs(name: current.name));
+    if (current.id == null) {
+      setState(() => _queue.removeAt(0));
+      return;
+    }
+
+    setState(() => _queue.removeAt(0));
+
+    final isMatch = await MatchService.likeUser(current.id!);
+    if (!mounted) return;
+
+    if (isMatch) {
+      // 매칭 성공!
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: AppTheme.card,
+          title: const Text('매칭 성공!', style: TextStyle(color: AppTheme.text)),
+          content: Text('${current.name}님과 매칭되었습니다!', style: const TextStyle(color: AppTheme.text)),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                context.go(
+                  '/chat',
+                  extra: ChatArgs(
+                    name: current.name,
+                    otherUserId: current.id,
+                  ),
+                );
+              },
+              child: const Text('채팅하기', style: TextStyle(color: AppTheme.pink)),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Future<void> _superLike() async {
+    if (_queue.isEmpty) return;
+    final current = _queue.first;
+    if (current.id == null) {
+      setState(() => _queue.removeAt(0));
+      return;
+    }
+
+    final success = await PremiumService.sendSuperLike(current.id!);
+    if (!mounted) return;
+
+    if (success) {
+      setState(() => _queue.removeAt(0));
+      final isMatch = await MatchService.likeUser(current.id!);
+      if (!mounted) return;
+
+      if (isMatch) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: AppTheme.card,
+            title: const Text('슈퍼라이크 매칭!', style: TextStyle(color: AppTheme.text)),
+            content: Text('${current.name}님과 슈퍼라이크로 매칭되었습니다!', style: const TextStyle(color: AppTheme.text)),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  context.go(
+                    '/chat',
+                    extra: ChatArgs(
+                      name: current.name,
+                      otherUserId: current.id,
+                    ),
+                  );
+                },
+                child: const Text('채팅하기', style: TextStyle(color: AppTheme.pink)),
+              ),
+            ],
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('슈퍼라이크를 보냈습니다!')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('슈퍼라이크 전송에 실패했습니다.')),
+      );
+    }
   }
 
   @override
@@ -96,9 +214,11 @@ class _MatchPageState extends State<MatchPage> {
           const SizedBox(height: 16),
           Expanded(
             child: Center(
-              child: _queue.isEmpty
-                  ? const _Empty()
-                  : _CardStack(profiles: _queue, onLike: _like, onSkip: _skip),
+              child: _isLoading
+                  ? const CircularProgressIndicator()
+                  : _queue.isEmpty
+                      ? const _Empty()
+                      : _CardStack(profiles: _queue, onLike: _like, onSkip: _skip),
             ),
           ),
           const SizedBox(height: 12),
@@ -111,6 +231,18 @@ class _MatchPageState extends State<MatchPage> {
                 color: Colors.grey,
                 onTap: _skip,
               ),
+              FutureBuilder<bool>(
+                future: PremiumService.canUseSuperLike(),
+                builder: (context, snapshot) {
+                  final canSuperLike = snapshot.data ?? false;
+                  return _ActionButton(
+                    label: canSuperLike ? '슈퍼라이크' : i18n.t('match.like'),
+                    icon: canSuperLike ? Icons.star : Icons.favorite,
+                    color: canSuperLike ? Colors.blue : AppTheme.pink,
+                    onTap: canSuperLike ? () => _superLike() : _like,
+                  );
+                },
+              ),
               _ActionButton(
                 label: i18n.t('match.like'),
                 icon: Icons.favorite,
@@ -122,6 +254,11 @@ class _MatchPageState extends State<MatchPage> {
                 icon: const Icon(Icons.refresh, color: AppTheme.sub),
                 tooltip: 'Reload',
               ),
+              if (_hasMore)
+                OutlinedButton(
+                  onPressed: _loadMore,
+                  child: const Text('더 보기', style: TextStyle(color: AppTheme.text)),
+                ),
             ],
           ),
         ],
@@ -131,10 +268,11 @@ class _MatchPageState extends State<MatchPage> {
 }
 
 class _ProfileCard extends StatelessWidget {
-  final ProfileCardData data;
-  const _ProfileCard({required this.data});
+  final UserProfile profile;
+  const _ProfileCard({required this.profile});
   @override
   Widget build(BuildContext context) {
+    final photoUrl = profile.photoUrls.isNotEmpty ? profile.photoUrls.first : null;
     return Container(
       width: double.infinity,
       constraints: const BoxConstraints(maxWidth: 420, minHeight: 380),
@@ -147,31 +285,88 @@ class _ProfileCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Container(
-              width: double.infinity,
-              color: const Color(0xFF22243A),
-              alignment: Alignment.center,
-              child: const Icon(Icons.person, size: 80, color: Colors.white24),
-            ),
+          Stack(
+            children: [
+              Expanded(
+                child: Container(
+                  width: double.infinity,
+                  color: const Color(0xFF22243A),
+                  child: photoUrl != null
+                      ? CachedImage(
+                          imageUrl: photoUrl,
+                          fit: BoxFit.cover,
+                        )
+                      : const Icon(Icons.person, size: 80, color: Colors.white24),
+                ),
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                  onPressed: () {
+                    if (profile.id != null) {
+                      showDialog(
+                        context: context,
+                        builder: (ctx) => UserActionDialog(
+                          targetUserId: profile.id!,
+                          targetUserName: profile.name,
+                          isMatched: false,
+                        ),
+                      );
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${data.name}, ${data.age}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: AppTheme.text,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      '${profile.name}, ${profile.age}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.text,
+                      ),
+                    ),
+                    if (profile.isVerified) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: const BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.verified,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 4),
-                Text(data.city, style: const TextStyle(color: AppTheme.sub)),
+                Text(profile.city, style: const TextStyle(color: AppTheme.sub)),
                 const SizedBox(height: 8),
-                Text(data.bio, style: const TextStyle(color: AppTheme.text)),
+                Text(profile.bio, style: const TextStyle(color: AppTheme.text)),
+                if (profile.interests.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    children: profile.interests.take(3).map((interest) => Chip(
+                      label: Text(interest, style: const TextStyle(fontSize: 11)),
+                      padding: EdgeInsets.zero,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    )).toList(),
+                  ),
+                ],
               ],
             ),
           ),
@@ -182,7 +377,7 @@ class _ProfileCard extends StatelessWidget {
 }
 
 class _CardStack extends StatefulWidget {
-  final List<ProfileCardData> profiles;
+  final List<UserProfile> profiles;
   final VoidCallback onLike;
   final VoidCallback onSkip;
   const _CardStack({
@@ -197,6 +392,7 @@ class _CardStack extends StatefulWidget {
 class _CardStackState extends State<_CardStack> {
   int _progressDir = 0; // -1, 0, 1
   double _progress = 0; // 0~1 진행도(절댓값)
+
   @override
   Widget build(BuildContext context) {
     // 상단 2장만 그려 간단한 스택 느낌 제공
@@ -211,7 +407,7 @@ class _CardStackState extends State<_CardStack> {
               offset: const Offset(0, 12),
               child: Opacity(
                 opacity: 0.9,
-                child: _ProfileCard(data: topTwo[1]),
+                child: _ProfileCard(profile: topTwo[1]),
               ),
             ),
           _buildDismissible(topTwo.first),
@@ -247,20 +443,36 @@ class _CardStackState extends State<_CardStack> {
                 ),
               ),
             ),
+          // 하트/엑스 아이콘 오버레이 애니메이션
+          if (_progress > 0.7)
+            Center(
+              child: AnimatedScale(
+                scale: (_progress - 0.7) * 3.33,
+                duration: const Duration(milliseconds: 150),
+                child: Icon(
+                  _progressDir == 1 ? Icons.favorite : Icons.close,
+                  size: 80,
+                  color: _progressDir == 1
+                      ? AppTheme.pink.withValues(alpha: 0.8)
+                      : Colors.grey.withValues(alpha: 0.8),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Widget _buildDismissible(ProfileCardData data) {
+  Widget _buildDismissible(UserProfile profile) {
     return Dismissible(
-      key: ValueKey('${data.name}-${data.age}-${data.city}'),
+      key: ValueKey('${profile.id ?? profile.name}-${profile.age}-${profile.city}'),
       direction: DismissDirection.horizontal,
-      movementDuration: const Duration(milliseconds: 200),
+      movementDuration: const Duration(milliseconds: 250),
       dismissThresholds: const {
         DismissDirection.startToEnd: 0.35,
         DismissDirection.endToStart: 0.35,
       },
+      resizeDuration: const Duration(milliseconds: 200),
       onUpdate: (details) {
         // 진행도 및 방향(-1: 오른쪽->왼쪽 skip, 1: 왼쪽->오른쪽 like)
         setState(() {
@@ -291,8 +503,13 @@ class _CardStackState extends State<_CardStack> {
         align: Alignment.centerRight,
       ),
       child: Transform.rotate(
-        angle: (_progressDir * _progress) * 0.15, // 최대 ~8.5도 회전
-        child: _ProfileCard(data: data),
+        angle: (_progressDir * _progress) * 0.15,
+        child: AnimatedScale(
+          scale: _progress > 0 ? (1.0 - _progress * 0.05) : 1.0,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOutBack,
+          child: _ProfileCard(profile: profile),
+        ),
       ),
     );
   }
@@ -313,9 +530,9 @@ class _SwipeBg extends StatelessWidget {
       alignment: align,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.24)),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
       ),
       child: Icon(icon, color: color),
     );
@@ -345,8 +562,8 @@ class _ActionButton extends StatelessWidget {
             height: 64,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: color.withOpacity(0.12),
-              border: Border.all(color: color.withOpacity(0.4)),
+              color: color.withValues(alpha: 0.12),
+              border: Border.all(color: color.withValues(alpha: 0.4)),
             ),
             child: Icon(icon, color: color),
           ),

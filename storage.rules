@@ -1,0 +1,39 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // 헬퍼 함수: 현재 사용자 확인
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // 헬퍼 함수: 자신의 폴더인지 확인
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // 프로필 이미지: 모든 인증 사용자가 읽기 가능, 자신의 폴더만 업로드 가능
+    match /profiles/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && 
+        request.resource.size < 10 * 1024 * 1024 && // 10MB 제한
+        request.resource.contentType.matches('image/.*');
+      allow delete: if isOwner(userId);
+    }
+    
+    // 채팅 이미지: 모든 인증 사용자가 읽기 가능, 자신의 폴더만 업로드 가능
+    match /chat/{userId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) && 
+        request.resource.size < 10 * 1024 * 1024 && // 10MB 제한
+        request.resource.contentType.matches('image/.*');
+      allow delete: if isOwner(userId);
+    }
+    
+    // 기타 경로는 기본적으로 거부
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
