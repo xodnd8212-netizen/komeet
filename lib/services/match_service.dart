@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/profile.dart';
+import '../utils/logger.dart';
+import '../utils/rate_limiter.dart';
 import 'auth_service.dart';
 import 'profile_service.dart';
 import 'notifications.dart';
@@ -27,13 +29,31 @@ class MatchService {
   static Future<bool> likeUser(String targetUserId) async {
     try {
       final currentUserId = AuthService.currentUser?.uid;
-      if (currentUserId == null) return false;
+      if (currentUserId == null) {
+        AppLogger.warning('좋아요 실패: 로그인 필요');
+        return false;
+      }
+
+      // Rate Limiting 확인 (1분에 최대 10개)
+      if (!RateLimiter.isAllowed('like', 10, 60)) {
+        final remaining = RateLimiter.getRemainingSeconds('like', 10, 60);
+        AppLogger.warning('좋아요 Rate Limit 초과', {
+          'userId': currentUserId,
+          'remainingSeconds': remaining,
+        });
+        throw Exception('너무 빠르게 좋아요를 보내고 있습니다. ${remaining != null ? '${remaining}초 후 다시 시도해주세요.' : '잠시 후 다시 시도해주세요.'}');
+      }
 
       // 좋아요 저장
       final likeDoc = await _firestore.collection(_likesCollection).add({
         'fromUserId': currentUserId,
         'toUserId': targetUserId,
         'timestamp': DateTime.now().toIso8601String(),
+      });
+
+      AppLogger.info('좋아요 전송', {
+        'fromUserId': currentUserId,
+        'toUserId': targetUserId,
       });
 
       // 마지막 좋아요 저장 (되돌리기용)

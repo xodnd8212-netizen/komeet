@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/profile.dart';
+import '../utils/validators.dart';
+import '../utils/logger.dart';
 import 'auth_service.dart';
 
 class ProfileService {
@@ -11,6 +13,31 @@ class ProfileService {
       final userId = AuthService.currentUser?.uid;
       if (userId == null) {
         throw Exception('로그인이 필요합니다.');
+      }
+
+      // 입력값 검증
+      final nameError = Validators.name(profile.name);
+      if (nameError != null) throw Exception(nameError);
+
+      final ageError = Validators.age(profile.age);
+      if (ageError != null) throw Exception(ageError);
+
+      final bioError = Validators.bio(profile.bio);
+      if (bioError != null) throw Exception(bioError);
+
+      final cityError = Validators.city(profile.city);
+      if (cityError != null) throw Exception(cityError);
+
+      final interestsError = Validators.interests(profile.interests);
+      if (interestsError != null) throw Exception(interestsError);
+
+      final photosError = Validators.photos(profile.photoUrls);
+      if (photosError != null) throw Exception(photosError);
+
+      final coordinatesError = Validators.coordinates(profile.lat, profile.lng);
+      if (coordinatesError != null) {
+        AppLogger.warning('위치 정보 없이 프로필 저장', {'userId': userId});
+        // 위치 정보는 선택사항으로 처리
       }
 
       final data = profile
@@ -26,10 +53,13 @@ class ProfileService {
           .doc(userId)
           .set(data, SetOptions(merge: true));
 
+      AppLogger.info('프로필 저장 성공', {'userId': userId});
       return userId;
-    } on FirebaseException catch (e) {
+    } on FirebaseException catch (e, stackTrace) {
+      AppLogger.error('프로필 저장 실패 (Firebase)', e, stackTrace);
       throw Exception('프로필 저장 실패: ${e.message}');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      AppLogger.error('프로필 저장 중 오류', e, stackTrace);
       throw Exception('프로필 저장 중 오류가 발생했습니다: $e');
     }
   }
