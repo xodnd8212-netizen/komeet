@@ -28,27 +28,62 @@ class _ChatPageState extends State<ChatPage> {
   String? _chatId;
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scroll = ScrollController();
-  final bool _otherTyping = false;
+  bool _otherTyping = false;
   bool _canSend = false;
+  final Map<String, DateTime> _typingUsers = {};
 
   @override
   void initState() {
     super.initState();
     _initializeChat();
+    _controller.addListener(_onTextChanged);
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onTextChanged);
+    _controller.dispose();
+    _scroll.dispose();
+    if (_chatId != null) {
+      ChatService.setTyping(_chatId!, false);
+    }
+    super.dispose();
+  }
+
+  void _onTextChanged() {
+    if (_chatId != null) {
+      final isTyping = _controller.text.trim().isNotEmpty;
+      ChatService.setTyping(_chatId!, isTyping);
+    }
   }
 
   Future<void> _initializeChat() async {
     if (widget.args?.chatId != null) {
       setState(() => _chatId = widget.args!.chatId);
       ChatService.markAsSeen(_chatId!);
+      _watchTyping();
     } else if (widget.args?.otherUserId != null) {
       final roomId = await ChatService.createChatRoom(
         widget.args!.otherUserId!,
       );
       if (mounted && roomId != null) {
         setState(() => _chatId = roomId);
+        _watchTyping();
       }
     }
+  }
+
+  void _watchTyping() {
+    if (_chatId == null) return;
+    ChatService.watchTyping(_chatId!).listen((typingUsers) {
+      if (mounted) {
+        setState(() {
+          _otherTyping = typingUsers.isNotEmpty;
+          _typingUsers.clear();
+          _typingUsers.addAll(typingUsers);
+        });
+      }
+    });
   }
 
   Future<void> _send() async {
@@ -212,6 +247,8 @@ class _ChatPageState extends State<ChatPage> {
                             isMe: isMe,
                             time: m.timestamp,
                             seen: m.seen,
+                            seenAt: m.seenAt,
+                            status: m.status,
                             imageUrl: m.imageUrl,
                           );
                         },
@@ -322,12 +359,16 @@ class _Bubble extends StatelessWidget {
   final bool isMe;
   final DateTime time;
   final bool seen;
+  final DateTime? seenAt;
+  final MessageStatus status;
   final String? imageUrl;
   const _Bubble({
     required this.text,
     required this.isMe,
     required this.time,
     required this.seen,
+    this.seenAt,
+    this.status = MessageStatus.sent,
     this.imageUrl,
   });
   @override
@@ -376,20 +417,67 @@ class _Bubble extends StatelessWidget {
                   ),
                 ),
               const SizedBox(height: 4),
-              Text(
-                _fmt(time),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isMe
-                      ? Colors.white.withValues(alpha: 0.8)
-                      : const Color(0xFF6B7280),
-                ),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _fmt(time),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isMe
+                          ? Colors.white.withValues(alpha: 0.8)
+                          : const Color(0xFF6B7280),
+                    ),
+                  ),
+                  if (isMe) ...[
+                    const SizedBox(width: 4),
+                    _buildStatusIcon(),
+                  ],
+                ],
               ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildStatusIcon() {
+    switch (status) {
+      case MessageStatus.sending:
+        return const SizedBox(
+          width: 12,
+          height: 12,
+          child: CircularProgressIndicator(
+            strokeWidth: 1.5,
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+          ),
+        );
+      case MessageStatus.sent:
+        return Icon(
+          Icons.check,
+          size: 12,
+          color: Colors.white.withValues(alpha: 0.8),
+        );
+      case MessageStatus.delivered:
+        return Icon(
+          Icons.done_all,
+          size: 12,
+          color: Colors.white.withValues(alpha: 0.8),
+        );
+      case MessageStatus.read:
+        return Icon(
+          Icons.done_all,
+          size: 12,
+          color: Colors.blue.shade300,
+        );
+      case MessageStatus.failed:
+        return Icon(
+          Icons.error_outline,
+          size: 12,
+          color: Colors.red.shade300,
+        );
+    }
   }
 
   static String _fmt(DateTime t) {
@@ -529,3 +617,4 @@ class _InputBar extends StatelessWidget {
     );
   }
 }
+

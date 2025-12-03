@@ -14,7 +14,7 @@ class PrefsService {
 
   static Future<double> getMaxDistanceKm() async {
     final p = await SharedPreferences.getInstance();
-    return p.getDouble(_kMaxDistance) ?? 30.0;
+    return p.getDouble(_kMaxDistance) ?? 500.0; // 일본-한국 매칭을 위해 기본값 500km
   }
 
   static Future<void> setMaxDistanceKm(double value) async {

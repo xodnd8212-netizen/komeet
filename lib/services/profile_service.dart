@@ -89,6 +89,48 @@ class ProfileService {
     });
   }
 
+  /// 프로필 완성도 점수 계산 (0-100)
+  static int calculateCompletenessScore(UserProfile profile) {
+    int score = 0;
+    
+    // 사진 (최대 30점)
+    final photoCount = profile.photoUrls.length;
+    score += (photoCount / 6.0 * 30).clamp(0, 30).round();
+    
+    // 자기소개 (최대 25점)
+    final bioLength = profile.bio.length;
+    if (bioLength >= 200) {
+      score += 25;
+    } else if (bioLength >= 100) {
+      score += 20;
+    } else if (bioLength >= 50) {
+      score += 15;
+    } else if (bioLength >= 10) {
+      score += 10;
+    }
+    
+    // 관심사 (최대 20점)
+    final interestCount = profile.interests.length;
+    score += (interestCount / 5.0 * 20).clamp(0, 20).round();
+    
+    // 위치 정보 (최대 15점)
+    if (profile.lat != null && profile.lng != null) {
+      score += 15;
+    }
+    
+    // 인증 여부 (최대 10점)
+    if (profile.isVerified) {
+      score += 10;
+    }
+    
+    return score.clamp(0, 100);
+  }
+
+  /// 프로필 완성도가 충분한지 확인
+  static bool isProfileComplete(UserProfile profile) {
+    return calculateCompletenessScore(profile) >= 60;
+  }
+
   static Future<List<UserProfile>> getNearbyProfiles({
     required double lat,
     required double lng,

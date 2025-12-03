@@ -15,7 +15,7 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  double _maxDistance = 30;
+  double _maxDistance = 500; // 일본-한국 매칭을 위해 기본값 500km
   bool _notify = true;
   bool _tokyoOnly = false;
   int _minAge = 18;
@@ -104,10 +104,10 @@ class _SettingsPageState extends State<SettingsPage> {
           Row(
             children: [
               Expanded(
-                child: Slider(
+                child:                 Slider(
                   min: 0.1,
-                  max: 200,
-                  divisions: 1999,
+                  max: 1000, // 최대 1000km까지 설정 가능
+                  divisions: 9999,
                   value: _maxDistance,
                   label: _maxDistance.toStringAsFixed(1),
                   onChanged: (v) {

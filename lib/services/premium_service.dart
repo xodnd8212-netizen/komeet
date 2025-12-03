@@ -122,5 +122,100 @@ class PremiumService {
       return 0;
     }
   }
+
+  /// 부스트 상태 가져오기 (남은 시간 포함)
+  static Future<Map<String, dynamic>?> getBoostStatus() async {
+    try {
+      final currentUserId = AuthService.currentUser?.uid;
+      if (currentUserId == null) return null;
+
+      final userDoc = await _firestore.collection('users').doc(currentUserId).get();
+      if (!userDoc.exists) return null;
+
+      final data = userDoc.data()!;
+      final boostActive = data['boostActive'] as bool? ?? false;
+      if (!boostActive) return {'active': false};
+
+      final boostEndTimeStr = data['boostEndTime'] as String?;
+      if (boostEndTimeStr == null) return {'active': false};
+
+      final boostEndTime = DateTime.parse(boostEndTimeStr);
+      final now = DateTime.now();
+      
+      if (now.isAfter(boostEndTime)) {
+        // 부스트 시간 만료
+        await _firestore.collection('users').doc(currentUserId).update({
+          'boostActive': false,
+        });
+        return {'active': false};
+      }
+
+      final remaining = boostEndTime.difference(now);
+      return {
+        'active': true,
+        'endTime': boostEndTime,
+        'remainingMinutes': remaining.inMinutes,
+        'remainingSeconds': remaining.inSeconds,
+      };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// 부스트 사용 가능 여부 확인 (코인 잔액 확인)
+  static Future<bool> canBoost() async {
+    try {
+      final currentUserId = AuthService.currentUser?.uid;
+      if (currentUserId == null) return false;
+
+      // 이미 활성화된 부스트가 있는지 확인
+      final status = await getBoostStatus();
+      if (status?['active'] == true) return false;
+
+      // 코인 잔액 확인 (부스트 비용: 100 코인)
+      final userDoc = await _firestore.collection('users').doc(currentUserId).get();
+      if (!userDoc.exists) return false;
+
+      final coinBalance = userDoc.data()?['coinBalance'] as int? ?? 0;
+      return coinBalance >= 100;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// 부스트 사용 (코인 차감)
+  static Future<bool> useBoost() async {
+    try {
+      final currentUserId = AuthService.currentUser?.uid;
+      if (currentUserId == null) return false;
+
+      // 코인 잔액 확인 및 차감
+      final userDoc = await _firestore.collection('users').doc(currentUserId).get();
+      if (!userDoc.exists) return false;
+
+      final coinBalance = userDoc.data()?['coinBalance'] as int? ?? 0;
+      if (coinBalance < 100) {
+        throw Exception('부스트를 사용하기에 코인이 부족합니다. (필요: 100 코인)');
+      }
+
+      // 코인 차감 및 부스트 활성화
+      final boostEndTime = DateTime.now().add(const Duration(minutes: 30));
+      await _firestore.collection('users').doc(currentUserId).update({
+        'coinBalance': FieldValue.increment(-100),
+        'boostActive': true,
+        'boostEndTime': boostEndTime.toIso8601String(),
+      });
+
+      AppLogger.info('부스트 사용', {
+        'userId': currentUserId,
+        'endTime': boostEndTime.toIso8601String(),
+      });
+
+      return true;
+    } catch (e, stackTrace) {
+      AppLogger.error('부스트 사용 실패', e, stackTrace);
+      return false;
+    }
+  }
 }
 

@@ -87,6 +87,7 @@ class ChatService {
         text: sanitizedText,
         imageUrl: imageUrl,
         timestamp: DateTime.now(),
+        status: MessageStatus.sent,
       );
 
       AppLogger.info('메시지 전송', {
@@ -165,6 +166,7 @@ class ChatService {
       if (currentUserId == null) return;
 
       final batch = _firestore.batch();
+      final now = DateTime.now();
       final messages = await _firestore
           .collection(_messagesCollection)
           .where('chatId', isEqualTo: chatId)
@@ -173,13 +175,88 @@ class ChatService {
           .get();
 
       for (final doc in messages.docs) {
-        batch.update(doc.reference, {'seen': true});
+        batch.update(doc.reference, {
+          'seen': true,
+          'seenAt': now.toIso8601String(),
+          'status': MessageStatus.read.name,
+        });
       }
 
       await batch.commit();
+      
+      // 채팅방의 읽지 않은 메시지 수 업데이트
+      await _firestore.collection(_roomsCollection).doc(chatId).update({
+        'unreadCount': 0,
+      });
     } catch (e) {
       // 무시
     }
+  }
+
+  /// 타이핑 상태 설정
+  static Future<void> setTyping(String chatId, bool isTyping) async {
+    try {
+      final currentUserId = AuthService.currentUser?.uid;
+      if (currentUserId == null) return;
+
+      final roomRef = _firestore.collection(_roomsCollection).doc(chatId);
+      
+      if (isTyping) {
+        await roomRef.set({
+          'typingUsers.$currentUserId': DateTime.now().toIso8601String(),
+        }, SetOptions(merge: true));
+      } else {
+        final roomDoc = await roomRef.get();
+        if (roomDoc.exists) {
+          final data = roomDoc.data()!;
+          final typingUsers = Map<String, dynamic>.from(data['typingUsers'] ?? {});
+          typingUsers.remove(currentUserId);
+          await roomRef.update({'typingUsers': typingUsers});
+        }
+      }
+    } catch (e) {
+      // 무시
+    }
+  }
+
+  /// 타이핑 상태 감시
+  static Stream<Map<String, DateTime>> watchTyping(String chatId) {
+    final currentUserId = AuthService.currentUser?.uid;
+    if (currentUserId == null) {
+      return Stream.value({});
+    }
+
+    return _firestore
+        .collection(_roomsCollection)
+        .doc(chatId)
+        .snapshots()
+        .map((snapshot) {
+      if (!snapshot.exists) return {};
+      
+      final data = snapshot.data()!;
+      final typingUsers = data['typingUsers'] as Map<String, dynamic>?;
+      
+      if (typingUsers == null) return {};
+      
+      // 5초 이상 지난 타이핑 상태는 제거
+      final now = DateTime.now();
+      final validTyping = <String, DateTime>{};
+      
+      typingUsers.forEach((userId, timestampStr) {
+        if (userId != currentUserId) {
+          try {
+            final timestamp = DateTime.parse(timestampStr);
+            if (now.difference(timestamp).inSeconds < 5) {
+              validTyping[userId] = timestamp;
+            }
+          } catch (e) {
+            // 무시
+          }
+        }
+      });
+      
+      return validTyping;
+    });
   }
 
   static Stream<List<ChatRoom>> watchChatRooms() {

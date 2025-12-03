@@ -298,40 +298,79 @@ class MatchService {
           .where((p) => p.lat != null && p.lng != null)
           .toList();
 
-      // 필터링
-      final filtered = allProfiles.where((p) {
+      // 현재 사용자 프로필 가져오기 (국가 판별용)
+      final currentProfile = await ProfileService.getCurrentUserProfile();
+      final isCurrentUserKorean = currentProfile?.city.contains('서울') == true || 
+                                   currentProfile?.city.contains('Seoul') == true ||
+                                   currentProfile?.city.contains('한국') == true ||
+                                   currentProfile?.city.contains('Korea') == true;
+
+      // 필터링 및 스코어링
+      final scoredProfiles = allProfiles.map((p) {
         // 도쿄 필터
-        if (tokyoOnly && p.city.toLowerCase() != 'tokyo') return false;
+        if (tokyoOnly && p.city.toLowerCase() != 'tokyo') return null;
         
         // 나이 필터
-        if (minAge != null && p.age < minAge) return false;
-        if (maxAge != null && p.age > maxAge) return false;
+        if (minAge != null && p.age < minAge) return null;
+        if (maxAge != null && p.age > maxAge) return null;
         
         // 성별 선호도 필터
         if (genderPreference != null && genderPreference != 'any') {
-          if (p.gender != genderPreference) return false;
+          if (p.gender != genderPreference) return null;
         }
         
-        // 거리 필터
+        // 거리 계산
         final distance = geo.haversineKm(
           geo.GeoPoint(lat, lng),
           geo.GeoPoint(p.lat!, p.lng!),
         );
-        return distance <= maxDistanceKm;
-      }).toList();
+        
+        // 국가 간 매칭 특별 처리 (일본-한국 간 500km 허용)
+        final isTargetKorean = p.city.contains('서울') == true || 
+                              p.city.contains('Seoul') == true ||
+                              p.city.contains('한국') == true ||
+                              p.city.contains('Korea') == true;
+        final isTargetJapanese = p.city.contains('Tokyo') == true || 
+                                p.city.contains('도쿄') == true ||
+                                p.city.contains('일본') == true ||
+                                p.city.contains('Japan') == true;
+        
+        // 국가 간 매칭인 경우 거리 제한 완화
+        final effectiveMaxDistance = (isCurrentUserKorean && isTargetJapanese) || 
+                                     (isCurrentUserKorean == false && isTargetKorean)
+                                     ? 500.0 // 일본-한국 간 매칭은 500km 허용
+                                     : maxDistanceKm;
+        
+        if (distance > effectiveMaxDistance) return null;
+        
+        // 스마트 스코어 계산 (프로필 완성도, 인증 여부, 거리 등 고려)
+        double score = 100.0;
+        
+        // 프로필 완성도 점수 (사진 개수, 소개 길이, 관심사 개수)
+        final photoScore = (p.photoUrls.length / 6.0).clamp(0.0, 1.0) * 30.0; // 최대 30점
+        final bioScore = (p.bio.length / 200.0).clamp(0.0, 1.0) * 20.0; // 최대 20점
+        final interestScore = (p.interests.length / 5.0).clamp(0.0, 1.0) * 20.0; // 최대 20점
+        
+        // 인증 여부 보너스
+        final verifiedBonus = p.isVerified ? 30.0 : 0.0;
+        
+        // 거리 점수 (가까울수록 높은 점수, 최대 30점)
+        final distanceScore = (1.0 - (distance / effectiveMaxDistance).clamp(0.0, 1.0)) * 30.0;
+        
+        // 국가 간 매칭 보너스 (다양성 증가)
+        final crossCountryBonus = (isCurrentUserKorean && isTargetJapanese) || 
+                                 (isCurrentUserKorean == false && isTargetKorean)
+                                 ? 10.0 : 0.0;
+        
+        score = photoScore + bioScore + interestScore + verifiedBonus + distanceScore + crossCountryBonus;
+        
+        return MapEntry(p, score);
+      }).where((entry) => entry != null).cast<MapEntry<UserProfile, double>>().toList();
 
-      // 거리순 정렬
-      filtered.sort((a, b) {
-        final distA = geo.haversineKm(
-          geo.GeoPoint(lat, lng),
-          geo.GeoPoint(a.lat!, a.lng!),
-        );
-        final distB = geo.haversineKm(
-          geo.GeoPoint(lat, lng),
-          geo.GeoPoint(b.lat!, b.lng!),
-        );
-        return distA.compareTo(distB);
-      });
+      // 스코어순 정렬 (높은 점수 우선)
+      scoredProfiles.sort((a, b) => b.value.compareTo(a.value));
+      
+      final filtered = scoredProfiles.map((e) => e.key).toList();
 
       final result = filtered.take(limit).toList();
       final hasMore = profilesSnapshot.docs.length >= limit * 3 && result.length >= limit;

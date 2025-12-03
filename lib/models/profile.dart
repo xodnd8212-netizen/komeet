@@ -25,7 +25,7 @@ class UserProfile {
     this.lat,
     this.lng,
     this.photoUrls = const [],
-    this.maxDistanceKm = 30,
+    this.maxDistanceKm = 500, // 일본-한국 매칭을 위해 기본값 500km
     this.isVerified = false,
     this.createdAt,
     this.updatedAt,
@@ -63,7 +63,7 @@ class UserProfile {
       photoUrls: List<String>.from(map['photoUrls'] ?? []),
       maxDistanceKm: map['maxDistanceKm'] is num
           ? (map['maxDistanceKm'] as num).toDouble()
-          : 30,
+          : 500, // 일본-한국 매칭을 위해 기본값 500km
       isVerified: map['isVerified'] as bool? ?? false,
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'])

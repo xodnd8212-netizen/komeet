@@ -48,3 +48,5 @@ firebase deploy --only firestore:indexes
 - 불필요한 리스너 해제
 - 위젯 dispose 시 리소스 정리
 
+
+
