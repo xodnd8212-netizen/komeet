@@ -16,7 +16,10 @@ class LikesNotificationPage extends StatelessWidget {
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
         backgroundColor: AppTheme.card,
-        title: const Text('나를 좋아요한 사람들', style: TextStyle(color: AppTheme.text)),
+        title: const Text(
+          '나를 좋아요한 사람들',
+          style: TextStyle(color: AppTheme.text),
+        ),
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -36,7 +39,11 @@ class LikesNotificationPage extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.favorite_border, size: 64, color: AppTheme.sub),
+                  const Icon(
+                    Icons.favorite_border,
+                    size: 64,
+                    color: AppTheme.sub,
+                  ),
                   const SizedBox(height: 16),
                   const Text(
                     '아직 좋아요가 없습니다',
@@ -52,8 +59,8 @@ class LikesNotificationPage extends StatelessWidget {
             itemCount: notifications.length,
             itemBuilder: (context, index) {
               final notification = notifications[index];
-              final data = notification.data();
-              final fromUserId = data['fromUserId'] as String?;
+              final data = notification.data() as Map<String, dynamic>?;
+              final fromUserId = data?['fromUserId'] as String?;
               if (fromUserId == null) return const SizedBox.shrink();
               return FutureBuilder<UserProfile?>(
                 future: ProfileService.getProfile(fromUserId),
@@ -83,17 +90,23 @@ class LikesNotificationPage extends StatelessWidget {
                       ),
                       title: Text(
                         profile.name,
-                        style: const TextStyle(color: AppTheme.text, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                          color: AppTheme.text,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       subtitle: Text(
                         '${profile.age}세 · ${profile.city}',
                         style: const TextStyle(color: AppTheme.sub),
                       ),
-                      trailing: const Icon(Icons.favorite, color: AppTheme.pink),
+                      trailing: const Icon(
+                        Icons.favorite,
+                        color: AppTheme.pink,
+                      ),
                       onTap: () async {
                         // 알림 읽음 처리
                         await notification.reference.update({'read': true});
-                        
+
                         // 프로필 상세 보기 또는 매칭 페이지로 이동
                         if (context.mounted) {
                           context.push('/match');
@@ -110,4 +123,3 @@ class LikesNotificationPage extends StatelessWidget {
     );
   }
 }
-

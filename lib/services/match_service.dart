@@ -41,7 +41,7 @@ class MatchService {
           'userId': currentUserId,
           'remainingSeconds': remaining,
         });
-        throw Exception('너무 빠르게 좋아요를 보내고 있습니다. ${remaining != null ? '${remaining}초 후 다시 시도해주세요.' : '잠시 후 다시 시도해주세요.'}');
+        throw Exception('너무 빠르게 좋아요를 보내고 있습니다. ${remaining != null ? '$remaining초 후 다시 시도해주세요.' : '잠시 후 다시 시도해주세요.'}');
       }
 
       // 좋아요 저장

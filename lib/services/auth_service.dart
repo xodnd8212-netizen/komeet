@@ -1,95 +1,77 @@
-import 'dart:convert';
-import 'dart:math';
-
-import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../utils/logger.dart';
 import '../utils/sanitizer.dart';
 
 class AuthService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
+  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static User? get currentUser => _auth.currentUser;
 
   static Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+  /// 로그인 성공 후 Firebase에 사용자 정보 저장
+  static Future<void> _saveUserToFirestore(UserCredential credential) async {
+    try {
+      final user = credential.user;
+      if (user == null) return;
+
+      final userData = {
+        'uid': user.uid,
+        'email': user.email,
+        'displayName': user.displayName,
+        'photoURL': user.photoURL,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+        'lastLoginAt': FieldValue.serverTimestamp(),
+      };
+
+      await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .set(userData, SetOptions(merge: true));
+
+      AppLogger.info('사용자 정보 Firebase 저장 성공', {'userId': user.uid});
+    } catch (e, stackTrace) {
+      AppLogger.error('사용자 정보 Firebase 저장 실패', e, stackTrace);
+      // 로그인은 성공했으므로 에러를 던지지 않음
+    }
+  }
+
   static Future<UserCredential?> signInWithGoogle() async {
     try {
+      UserCredential? credential;
+
       if (kIsWeb) {
         final googleProvider = GoogleAuthProvider()
           ..setCustomParameters({'prompt': 'select_account'});
-        return await _auth.signInWithPopup(googleProvider);
+        credential = await _auth.signInWithPopup(googleProvider);
+      } else {
+        final googleSignIn = GoogleSignIn();
+        final account = await googleSignIn.signIn();
+        if (account == null) return null;
+
+        final authentication = await account.authentication;
+        final googleCredential = GoogleAuthProvider.credential(
+          accessToken: authentication.accessToken,
+          idToken: authentication.idToken,
+        );
+        credential = await _auth.signInWithCredential(googleCredential);
       }
 
-      final googleSignIn = GoogleSignIn();
-      final account = await googleSignIn.signIn();
-      if (account == null) return null;
+      // Firebase에 사용자 정보 저장
+      if (credential != null) {
+        await _saveUserToFirestore(credential);
+      }
 
-      final authentication = await account.authentication;
-      final credential = GoogleAuthProvider.credential(
-        accessToken: authentication.accessToken,
-        idToken: authentication.idToken,
-      );
-      return await _auth.signInWithCredential(credential);
+      return credential;
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
     } catch (e) {
       throw Exception('Google 로그인 중 오류가 발생했습니다: $e');
-    }
-  }
-
-  static Future<UserCredential?> signInWithKakao() =>
-      _signInWithOAuthProvider('oidc.kakao', '카카오 로그인');
-
-  static Future<UserCredential?> signInWithNaver() =>
-      _signInWithOAuthProvider('oidc.naver', '네이버 로그인');
-
-  static Future<UserCredential?> signInWithApple() async {
-    try {
-      if (kIsWeb) {
-        final provider = OAuthProvider('apple.com');
-        return await _auth.signInWithPopup(provider);
-      }
-
-      if (defaultTargetPlatform != TargetPlatform.iOS &&
-          defaultTargetPlatform != TargetPlatform.macOS) {
-        throw Exception('Apple 로그인은 iOS 또는 macOS에서만 지원됩니다.');
-      }
-
-      final rawNonce = _generateNonce();
-      final nonce = _sha256ofString(rawNonce);
-
-      final appleCredential = await SignInWithApple.getAppleIDCredential(
-        scopes: [
-          AppleIDAuthorizationScopes.email,
-          AppleIDAuthorizationScopes.fullName,
-        ],
-        nonce: nonce,
-      );
-
-      if (appleCredential.identityToken == null) {
-        throw Exception('Apple 로그인 토큰을 가져오지 못했습니다.');
-      }
-
-      final oauthCredential = OAuthProvider('apple.com').credential(
-        idToken: appleCredential.identityToken,
-        rawNonce: rawNonce,
-        accessToken: appleCredential.authorizationCode,
-      );
-
-      return await _auth.signInWithCredential(oauthCredential);
-    } on SignInWithAppleAuthorizationException catch (e) {
-      if (e.code == AuthorizationErrorCode.canceled) {
-        throw Exception('사용자가 Apple 로그인을 취소했습니다.');
-      }
-      throw Exception('Apple 로그인 중 오류가 발생했습니다: ${e.message}');
-    } on FirebaseAuthException catch (e) {
-      throw _handleAuthException(e);
-    } catch (e) {
-      throw Exception('Apple 로그인 중 오류가 발생했습니다: $e');
     }
   }
 
@@ -115,13 +97,17 @@ class AuthService {
       }
 
       AppLogger.info('이메일 로그인 시도', {'email': normalizedEmail});
-      
+
       final credential = await _auth.signInWithEmailAndPassword(
         email: normalizedEmail,
         password: password,
       );
 
       AppLogger.info('이메일 로그인 성공', {'userId': credential.user?.uid});
+
+      // Firebase에 사용자 정보 저장
+      await _saveUserToFirestore(credential);
+
       return credential;
     } on FirebaseAuthException catch (e, stackTrace) {
       AppLogger.error('이메일 로그인 실패 (Firebase)', e, stackTrace);
@@ -149,13 +135,17 @@ class AuthService {
       }
 
       AppLogger.info('이메일 회원가입 시도', {'email': normalizedEmail});
-      
+
       final credential = await _auth.createUserWithEmailAndPassword(
         email: normalizedEmail,
         password: password,
       );
 
       AppLogger.info('이메일 회원가입 성공', {'userId': credential.user?.uid});
+
+      // Firebase에 사용자 정보 저장
+      await _saveUserToFirestore(credential);
+
       return credential;
     } on FirebaseAuthException catch (e, stackTrace) {
       AppLogger.error('이메일 회원가입 실패 (Firebase)', e, stackTrace);
@@ -176,28 +166,6 @@ class AuthService {
       throw _handleAuthException(e);
     } catch (e) {
       throw Exception('계정 업그레이드 중 오류가 발생했습니다: $e');
-    }
-  }
-
-  static Future<UserCredential?> _signInWithOAuthProvider(
-    String providerId,
-    String providerLabel,
-  ) async {
-    try {
-      final provider = OAuthProvider(providerId);
-      if (kIsWeb) {
-        return await _auth.signInWithPopup(provider);
-      }
-      return await _auth.signInWithProvider(provider);
-    } on FirebaseAuthException catch (e) {
-      if (e.code == 'operation-not-allowed') {
-        throw Exception(
-          '$providerLabel을 사용하려면 Firebase 콘솔에서 해당 제공자를 활성화해야 합니다.',
-        );
-      }
-      throw _handleAuthException(e);
-    } catch (e) {
-      throw Exception('$providerLabel 중 오류가 발생했습니다: $e');
     }
   }
 
@@ -227,19 +195,4 @@ class AuthService {
   static Future<void> signOut() async {
     await _auth.signOut();
   }
-
-  static String _generateNonce([int length = 32]) {
-    const charset =
-        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
-    final random = Random.secure();
-    return List.generate(length, (_) => charset[random.nextInt(charset.length)])
-        .join();
-  }
-
-  static String _sha256ofString(String input) {
-    final bytes = utf8.encode(input);
-    final digest = sha256.convert(bytes);
-    return digest.toString();
-  }
 }
-

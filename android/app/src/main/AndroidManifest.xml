@@ -41,5 +41,9 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- 카카오톡 -->
+        <package android:name="com.kakao.talk" />
+        <!-- 네이버 -->
+        <package android:name="com.nhn.android.nid" />
     </queries>
 </manifest>

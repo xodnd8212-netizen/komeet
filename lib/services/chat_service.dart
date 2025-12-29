@@ -72,7 +72,7 @@ class ChatService {
           'userId': senderId,
           'remainingSeconds': remaining,
         });
-        throw Exception('너무 빠르게 메시지를 보내고 있습니다. ${remaining != null ? '${remaining}초 후 다시 시도해주세요.' : '잠시 후 다시 시도해주세요.'}');
+        throw Exception('너무 빠르게 메시지를 보내고 있습니다. ${remaining != null ? '$remaining초 후 다시 시도해주세요.' : '잠시 후 다시 시도해주세요.'}');
       }
 
       // 메시지 Sanitization (XSS 방지)

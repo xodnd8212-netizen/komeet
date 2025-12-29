@@ -1,4 +1,4 @@
-package com.komeet.app
+package com.komeet
 
 import io.flutter.embedding.android.FlutterActivity
 

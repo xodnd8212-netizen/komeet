@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
@@ -82,6 +81,7 @@ class _LoginPageState extends State<LoginPage> {
       if (result != null) {
         // 어드민 여부 확인
         final isAdmin = await AdminService.isAdmin();
+        if (!mounted) return;
         if (isAdmin) {
           context.go('/admin');
         } else {
@@ -108,10 +108,6 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final i18n = I18n.of(context);
-    final isAppleSupported =
-        kIsWeb ||
-        defaultTargetPlatform == TargetPlatform.iOS ||
-        defaultTargetPlatform == TargetPlatform.macOS;
 
     return Scaffold(
       backgroundColor: AppTheme.bg,
@@ -305,29 +301,6 @@ class _LoginPageState extends State<LoginPage> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  if (isAppleSupported) ...[
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: _isLoading
-                            ? null
-                            : () => _handleSocialLogin(
-                                AuthService.signInWithApple,
-                              ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.text,
-                          side: const BorderSide(color: AppTheme.line),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        icon: const Icon(Icons.apple),
-                        label: Text(i18n.t('login.social.apple')),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                  ],
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
@@ -346,46 +319,6 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       icon: const Icon(Icons.g_mobiledata),
                       label: Text(i18n.t('login.social.google')),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _isLoading
-                          ? null
-                          : () =>
-                                _handleSocialLogin(AuthService.signInWithKakao),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.text,
-                        side: const BorderSide(color: AppTheme.line),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      icon: const Icon(Icons.chat_bubble_outline),
-                      label: Text(i18n.t('login.social.kakao')),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _isLoading
-                          ? null
-                          : () =>
-                                _handleSocialLogin(AuthService.signInWithNaver),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.text,
-                        side: const BorderSide(color: AppTheme.line),
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      icon: const Icon(Icons.eco_outlined),
-                      label: Text(i18n.t('login.social.naver')),
                     ),
                   ),
                 ],
