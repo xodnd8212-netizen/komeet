@@ -114,3 +114,4 @@ final userDoc = await FirebaseFirestore.instance
 - `lib/features/auth/login_page.dart`: 로그인 페이지
 - `lib/services/profile_service.dart`: 프로필 서비스
 - `firestore.rules`: Firestore 보안 규칙
+

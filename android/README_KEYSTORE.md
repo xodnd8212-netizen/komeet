@@ -54,3 +54,4 @@ flutter build appbundle
 - 프로덕션 환경에서는 환경 변수나 CI/CD 시크릿을 사용하는 것을 권장합니다
 
 
+

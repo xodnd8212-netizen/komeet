@@ -29,6 +29,8 @@ class _MatchPageState extends State<MatchPage> {
   void initState() {
     super.initState();
     _loadLocation();
+    // 분석 이벤트: 매칭 페이지 조회
+    AnalyticsService.logMatchPageViewed();
   }
 
   Future<void> _reloadQueue() async {
@@ -104,14 +106,19 @@ class _MatchPageState extends State<MatchPage> {
 
   void _skip() {
     if (_queue.isEmpty) return;
+    final current = _queue.first;
     setState(() {
       _queue.removeAt(0);
     });
+    // 분석 이벤트: 카드 스킵
+    if (current.id != null) {
+      AnalyticsService.logCardSkipped(current.id!);
+    }
   }
 
   Future<void> _like() async {
     if (_queue.isEmpty) return;
-    
+
     // 하루 좋아요 제한 확인
     final canLike = await PrefsService.canLikeMore();
     if (!canLike) {
@@ -146,17 +153,17 @@ class _MatchPageState extends State<MatchPage> {
         builder: (_) => AlertDialog(
           backgroundColor: AppTheme.card,
           title: const Text('매칭 성공!', style: TextStyle(color: AppTheme.text)),
-          content: Text('${current.name}님과 매칭되었습니다!', style: const TextStyle(color: AppTheme.text)),
+          content: Text(
+            '${current.name}님과 매칭되었습니다!',
+            style: const TextStyle(color: AppTheme.text),
+          ),
           actions: [
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
                 context.go(
                   '/chat',
-                  extra: ChatArgs(
-                    name: current.name,
-                    otherUserId: current.id,
-                  ),
+                  extra: ChatArgs(name: current.name, otherUserId: current.id),
                 );
               },
               child: const Text('채팅하기', style: TextStyle(color: AppTheme.pink)),
@@ -188,8 +195,14 @@ class _MatchPageState extends State<MatchPage> {
           context: context,
           builder: (_) => AlertDialog(
             backgroundColor: AppTheme.card,
-            title: const Text('슈퍼라이크 매칭!', style: TextStyle(color: AppTheme.text)),
-            content: Text('${current.name}님과 슈퍼라이크로 매칭되었습니다!', style: const TextStyle(color: AppTheme.text)),
+            title: const Text(
+              '슈퍼라이크 매칭!',
+              style: TextStyle(color: AppTheme.text),
+            ),
+            content: Text(
+              '${current.name}님과 슈퍼라이크로 매칭되었습니다!',
+              style: const TextStyle(color: AppTheme.text),
+            ),
             actions: [
               TextButton(
                 onPressed: () {
@@ -202,20 +215,23 @@ class _MatchPageState extends State<MatchPage> {
                     ),
                   );
                 },
-                child: const Text('채팅하기', style: TextStyle(color: AppTheme.pink)),
+                child: const Text(
+                  '채팅하기',
+                  style: TextStyle(color: AppTheme.pink),
+                ),
               ),
             ],
           ),
         );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('슈퍼라이크를 보냈습니다!')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('슈퍼라이크를 보냈습니다!')));
       }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('슈퍼라이크 전송에 실패했습니다.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('슈퍼라이크 전송에 실패했습니다.')));
     }
   }
 
@@ -268,8 +284,8 @@ class _MatchPageState extends State<MatchPage> {
               child: _isLoading
                   ? const CircularProgressIndicator()
                   : _queue.isEmpty
-                      ? const _Empty()
-                      : _CardStack(profiles: _queue, onLike: _like, onSkip: _skip),
+                  ? const _Empty()
+                  : _CardStack(profiles: _queue, onLike: _like, onSkip: _skip),
             ),
           ),
           const SizedBox(height: 12),
@@ -317,7 +333,10 @@ class _MatchPageState extends State<MatchPage> {
               if (_hasMore)
                 OutlinedButton(
                   onPressed: _loadMore,
-                  child: const Text('더 보기', style: TextStyle(color: AppTheme.text)),
+                  child: const Text(
+                    '더 보기',
+                    style: TextStyle(color: AppTheme.text),
+                  ),
                 ),
             ],
           ),
@@ -332,7 +351,9 @@ class _ProfileCard extends StatelessWidget {
   const _ProfileCard({required this.profile});
   @override
   Widget build(BuildContext context) {
-    final photoUrl = profile.photoUrls.isNotEmpty ? profile.photoUrls.first : null;
+    final photoUrl = profile.photoUrls.isNotEmpty
+        ? profile.photoUrls.first
+        : null;
     return Container(
       width: double.infinity,
       constraints: const BoxConstraints(maxWidth: 420, minHeight: 380),
@@ -352,11 +373,12 @@ class _ProfileCard extends StatelessWidget {
                   width: double.infinity,
                   color: const Color(0xFF22243A),
                   child: photoUrl != null
-                      ? CachedImage(
-                          imageUrl: photoUrl,
-                          fit: BoxFit.cover,
-                        )
-                      : const Icon(Icons.person, size: 80, color: Colors.white24),
+                      ? CachedImage(imageUrl: photoUrl, fit: BoxFit.cover)
+                      : const Icon(
+                          Icons.person,
+                          size: 80,
+                          color: Colors.white24,
+                        ),
                 ),
               ),
               Positioned(
@@ -420,11 +442,20 @@ class _ProfileCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 6,
-                    children: profile.interests.take(3).map((interest) => Chip(
-                      label: Text(interest, style: const TextStyle(fontSize: 11)),
-                      padding: EdgeInsets.zero,
-                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    )).toList(),
+                    children: profile.interests
+                        .take(3)
+                        .map(
+                          (interest) => Chip(
+                            label: Text(
+                              interest,
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                            padding: EdgeInsets.zero,
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        )
+                        .toList(),
                   ),
                 ],
               ],
@@ -452,6 +483,43 @@ class _CardStack extends StatefulWidget {
 class _CardStackState extends State<_CardStack> {
   int _progressDir = 0; // -1, 0, 1
   double _progress = 0; // 0~1 진행도(절댓값)
+  final Set<String> _loggedCardViews = {}; // 이미 로깅한 카드 ID 추적
+
+  @override
+  void initState() {
+    super.initState();
+    // 첫 카드 조회 이벤트
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _logCardViewIfNeeded();
+    });
+  }
+
+  void _logCardViewIfNeeded() {
+    if (widget.profiles.isEmpty) return;
+    final topProfile = widget.profiles.first;
+    if (topProfile.id != null && !_loggedCardViews.contains(topProfile.id)) {
+      _loggedCardViews.add(topProfile.id!);
+      // 거리 계산 (간단히 0으로 설정, 실제로는 위치 기반 계산 필요)
+      final distanceKm = 0.0; // TODO: 실제 거리 계산
+      AnalyticsService.logCardViewed(
+        targetUserId: topProfile.id!,
+        targetAge: topProfile.age,
+        targetGender: topProfile.gender,
+        distanceKm: distanceKm,
+      );
+    }
+  }
+
+  @override
+  void didUpdateWidget(_CardStack oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 새로운 카드가 표시되면 조회 이벤트 로깅
+    if (widget.profiles.isNotEmpty &&
+        (oldWidget.profiles.isEmpty ||
+            widget.profiles.first.id != oldWidget.profiles.first.id)) {
+      _logCardViewIfNeeded();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -525,7 +593,9 @@ class _CardStackState extends State<_CardStack> {
 
   Widget _buildDismissible(UserProfile profile) {
     return Dismissible(
-      key: ValueKey('${profile.id ?? profile.name}-${profile.age}-${profile.city}'),
+      key: ValueKey(
+        '${profile.id ?? profile.name}-${profile.age}-${profile.city}',
+      ),
       direction: DismissDirection.horizontal,
       movementDuration: const Duration(milliseconds: 250),
       dismissThresholds: const {

@@ -72,3 +72,4 @@ Google Play Console의 출시 노트 입력란에 위의 텍스트를 **그대�
 **주의:** HTML 태그나 언어 태그(`<ko-KR>` 등)를 직접 입력하지 마세요. Google Play Console이 자동으로 처리합니다.
 
 
+

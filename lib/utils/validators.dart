@@ -5,7 +5,9 @@ class Validators {
     if (value == null || value.isEmpty) {
       return '이메일을 입력해주세요.';
     }
-    final emailRegex = RegExp(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$');
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+    );
     if (!emailRegex.hasMatch(value)) {
       return '올바른 이메일 형식이 아닙니다.';
     }
@@ -48,6 +50,42 @@ class Validators {
     if (value > 100) {
       return '올바른 나이를 입력해주세요.';
     }
+    return null;
+  }
+
+  /// 생년월일 기반 나이 검증
+  /// [age]: 입력된 나이
+  /// [birthDate]: 생년월일
+  /// 반환: null이면 검증 통과, 아니면 에러 메시지
+  static String? validateAgeWithBirthDate(int? age, DateTime? birthDate) {
+    // 기본 나이 검증
+    final ageError = Validators.age(age);
+    if (ageError != null) {
+      return ageError;
+    }
+
+    // 생년월일이 제공된 경우 추가 검증
+    if (birthDate != null) {
+      final today = DateTime.now();
+      int calculatedAge = today.year - birthDate.year;
+
+      // 생일이 아직 지나지 않았으면 1살 빼기
+      if (today.month < birthDate.month ||
+          (today.month == birthDate.month && today.day < birthDate.day)) {
+        calculatedAge--;
+      }
+
+      // 계산된 나이가 18세 미만이면 차단
+      if (calculatedAge < 18) {
+        return '만 18세 이상만 가입할 수 있습니다. (생년월일 기준)';
+      }
+
+      // 입력된 나이와 계산된 나이가 2살 이상 차이나면 경고
+      if ((calculatedAge - age!).abs() > 2) {
+        return '입력하신 나이와 생년월일이 일치하지 않습니다. 다시 확인해주세요.';
+      }
+    }
+
     return null;
   }
 
@@ -112,12 +150,3 @@ class Validators {
     return null;
   }
 }
-
-
-
-
-
-
-
-
-

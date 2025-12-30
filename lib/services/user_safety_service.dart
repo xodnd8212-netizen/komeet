@@ -29,6 +29,9 @@ class UserSafetyService {
         'blockedId': targetUserId,
       });
 
+      // 분석 이벤트: 사용자 차단
+      await AnalyticsService.logUserBlocked(targetUserId);
+
       return true;
     } catch (e, stackTrace) {
       AppLogger.error('사용자 차단 실패', e, stackTrace);
@@ -52,7 +55,7 @@ class UserSafetyService {
       if (snapshot.docs.isEmpty) return false;
 
       await snapshot.docs.first.reference.delete();
-      
+
       AppLogger.info('사용자 차단 해제', {
         'userId': currentUserId,
         'unblockedId': targetUserId,
@@ -139,6 +142,12 @@ class UserSafetyService {
         'reason': reason,
       });
 
+      // 분석 이벤트: 사용자 신고
+      await AnalyticsService.logUserReported(
+        reportedUserId: targetUserId,
+        reason: reason,
+      );
+
       return true;
     } catch (e, stackTrace) {
       AppLogger.error('사용자 신고 실패', e, stackTrace);
@@ -201,4 +210,3 @@ class UserSafetyService {
     }
   }
 }
-

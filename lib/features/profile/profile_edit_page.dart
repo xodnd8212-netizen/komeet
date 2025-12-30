@@ -6,6 +6,7 @@ import '../../services/auth_service.dart';
 import '../../services/storage_service.dart';
 import '../../services/location_service.dart';
 import '../../services/geo.dart';
+import '../../services/analytics_service.dart';
 import '../../widgets/cached_image.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:typed_data';
@@ -24,10 +25,12 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
   final _ageController = TextEditingController();
   final _cityController = TextEditingController();
   final _bioController = TextEditingController();
+  final _birthDateController = TextEditingController();
   final List<Uint8List> _selectedImages = [];
   final List<String> _existingImageUrls = [];
   double _maxDistance = 30;
   final List<String> _selectedInterests = [];
+  DateTime? _birthDate;
 
   @override
   void initState() {
@@ -41,6 +44,11 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
       _maxDistance = p.maxDistanceKm;
       _selectedInterests.addAll(p.interests);
       _existingImageUrls.addAll(p.photoUrls);
+      _birthDate = p.birthDate;
+      if (_birthDate != null) {
+        _birthDateController.text =
+            '${_birthDate!.year}-${_birthDate!.month.toString().padLeft(2, '0')}-${_birthDate!.day.toString().padLeft(2, '0')}';
+      }
     }
   }
 
@@ -50,6 +58,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
     _ageController.dispose();
     _cityController.dispose();
     _bioController.dispose();
+    _birthDateController.dispose();
     super.dispose();
   }
 
@@ -63,9 +72,9 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
       if (result == null || result.files.isEmpty) return;
       if (_selectedImages.length + result.files.length > 6) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('최대 6장까지 선택 가능합니다.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('최대 6장까지 선택 가능합니다.')));
         return;
       }
       setState(() {
@@ -77,9 +86,9 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('이미지 선택 실패: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('이미지 선택 실패: $e')));
     }
   }
 
@@ -109,9 +118,9 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedImages.isEmpty && _existingImageUrls.isEmpty) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('최소 1장의 사진이 필요합니다.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('최소 1장의 사진이 필요합니다.')));
       return;
     }
 
@@ -122,9 +131,9 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
 
     if (AuthService.currentUser == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('로그인이 필요합니다.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('로그인이 필요합니다.')));
       return;
     }
 
@@ -139,8 +148,12 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
     List<String> photoUrls = List.from(_existingImageUrls);
     if (_selectedImages.isNotEmpty) {
       try {
-        final uploadedUrls = await StorageService.uploadProfileImages(_selectedImages);
+        final uploadedUrls = await StorageService.uploadProfileImages(
+          _selectedImages,
+        );
         photoUrls.addAll(uploadedUrls);
+        // 분석 이벤트: 프로필 사진 업로드
+        await AnalyticsService.logProfilePhotoUploaded(photoUrls.length);
       } catch (e) {
         if (!mounted) return;
         Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
@@ -180,6 +193,7 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
       photoUrls: photoUrls,
       lat: location?.lat,
       lng: location?.lng,
+      birthDate: _birthDate,
       updatedAt: DateTime.now(),
     );
 
@@ -232,15 +246,28 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
           padding: const EdgeInsets.all(16),
           children: [
             // 사진 섹션
-            Text('사진 (${_existingImageUrls.length + _selectedImages.length}/6)', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.text)),
+            Text(
+              '사진 (${_existingImageUrls.length + _selectedImages.length}/6)',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.text,
+              ),
+            ),
             const SizedBox(height: 8),
             SizedBox(
               height: 120,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                itemCount: _existingImageUrls.length + _selectedImages.length + (_existingImageUrls.length + _selectedImages.length < 6 ? 1 : 0),
+                itemCount:
+                    _existingImageUrls.length +
+                    _selectedImages.length +
+                    (_existingImageUrls.length + _selectedImages.length < 6
+                        ? 1
+                        : 0),
                 itemBuilder: (_, i) {
-                  final totalImages = _existingImageUrls.length + _selectedImages.length;
+                  final totalImages =
+                      _existingImageUrls.length + _selectedImages.length;
                   if (i == totalImages) {
                     return _AddPhotoButton(onTap: _pickImage);
                   }
@@ -289,6 +316,47 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
               },
             ),
             const SizedBox(height: 16),
+            // 생년월일 (미성년자 방지 검증용)
+            TextFormField(
+              controller: _birthDateController,
+              readOnly: true,
+              decoration: const InputDecoration(
+                labelText: '생년월일 (선택사항)',
+                hintText: '18세 이상 검증용',
+                labelStyle: TextStyle(color: AppTheme.sub),
+                border: OutlineInputBorder(),
+                suffixIcon: Icon(Icons.calendar_today, color: AppTheme.sub),
+              ),
+              style: const TextStyle(color: AppTheme.text),
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate:
+                      _birthDate ??
+                      DateTime.now().subtract(const Duration(days: 365 * 25)),
+                  firstDate: DateTime(1950),
+                  lastDate: DateTime.now().subtract(
+                    const Duration(days: 365 * 18),
+                  ),
+                  helpText: '생년월일 선택',
+                  cancelText: '취소',
+                  confirmText: '확인',
+                );
+                if (date != null) {
+                  setState(() {
+                    _birthDate = date;
+                    _birthDateController.text =
+                        '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '생년월일을 입력하면 더 정확한 나이 검증이 가능합니다.',
+              style: TextStyle(fontSize: 12, color: AppTheme.sub),
+            ),
+            const SizedBox(height: 16),
             // 도시
             TextFormField(
               controller: _cityController,
@@ -315,25 +383,41 @@ class _ProfileEditPageState extends State<ProfileEditPage> {
             ),
             const SizedBox(height: 24),
             // 관심사
-            Text('관심사 (${_selectedInterests.length}/5)', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.text)),
+            Text(
+              '관심사 (${_selectedInterests.length}/5)',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.text,
+              ),
+            ),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: ['K-pop', '여행', '요리', '영화', '운동', '독서', '게임', '음악'].map((interest) {
-                final selected = _selectedInterests.contains(interest);
-                return FilterChip(
-                  label: Text(interest),
-                  selected: selected,
-                  onSelected: (_) => _toggleInterest(interest),
-                  selectedColor: AppTheme.pink.withValues(alpha: 0.2),
-                  checkmarkColor: AppTheme.pink,
-                );
-              }).toList(),
+              children: ['K-pop', '여행', '요리', '영화', '운동', '독서', '게임', '음악'].map(
+                (interest) {
+                  final selected = _selectedInterests.contains(interest);
+                  return FilterChip(
+                    label: Text(interest),
+                    selected: selected,
+                    onSelected: (_) => _toggleInterest(interest),
+                    selectedColor: AppTheme.pink.withValues(alpha: 0.2),
+                    checkmarkColor: AppTheme.pink,
+                  );
+                },
+              ).toList(),
             ),
             const SizedBox(height: 24),
             // 최대 거리
-            Text('최대 거리: ${_maxDistance.toStringAsFixed(1)} km', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.text)),
+            Text(
+              '최대 거리: ${_maxDistance.toStringAsFixed(1)} km',
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.text,
+              ),
+            ),
             Slider(
               value: _maxDistance,
               min: 0.1,
@@ -365,7 +449,11 @@ class _AddPhotoButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: AppTheme.line, style: BorderStyle.solid),
         ),
-        child: const Icon(Icons.add_photo_alternate, color: AppTheme.sub, size: 32),
+        child: const Icon(
+          Icons.add_photo_alternate,
+          color: AppTheme.sub,
+          size: 32,
+        ),
       ),
     );
   }
@@ -388,18 +476,18 @@ class _PhotoPreview extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: AppTheme.line),
           ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: image != null
-                  ? Image.memory(image!, fit: BoxFit.cover)
-                  : imageUrl != null
-                      ? CachedImage(
-                          imageUrl: imageUrl!,
-                          fit: BoxFit.cover,
-                          borderRadius: BorderRadius.circular(8),
-                        )
-                      : const Icon(Icons.image),
-            ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: image != null
+                ? Image.memory(image!, fit: BoxFit.cover)
+                : imageUrl != null
+                ? CachedImage(
+                    imageUrl: imageUrl!,
+                    fit: BoxFit.cover,
+                    borderRadius: BorderRadius.circular(8),
+                  )
+                : const Icon(Icons.image),
+          ),
         ),
         Positioned(
           top: 4,
@@ -420,4 +508,3 @@ class _PhotoPreview extends StatelessWidget {
     );
   }
 }
-

@@ -40,8 +40,12 @@ service cloud.firestore {
     // 프로필: 모든 인증 사용자가 읽기 가능, 자신의 프로필만 쓰기 가능 (어드민은 모든 권한)
     match /profiles/{userId} {
       allow read: if isAuthenticated() || isAdmin();
-      allow create: if isOwner(userId) || isAdmin();
-      allow update: if isOwner(userId) || isAdmin();
+      allow create: if (isOwner(userId) || isAdmin()) && 
+        // 미성년자 방지: 나이는 18세 이상이어야 함
+        (request.resource.data.age is int && request.resource.data.age >= 18);
+      allow update: if (isOwner(userId) || isAdmin()) && 
+        // 업데이트 시에도 나이는 18세 이상이어야 함
+        (request.resource.data.age is int && request.resource.data.age >= 18);
       allow delete: if isOwner(userId) || isAdmin();
     }
     
@@ -176,6 +180,18 @@ service cloud.firestore {
         request.resource.data.userId == request.auth.uid;
       allow update: if isAdmin(); // 어드민만 인증 상태 업데이트 가능
       allow delete: if isAdmin(); // 어드민만 삭제 가능
+    }
+    
+    // 정지된 계정: 어드민만 읽기/쓰기 가능
+    match /banned_accounts/{banId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+    
+    // 삭제된 계정: 어드민만 읽기/쓰기 가능
+    match /deleted_accounts/{deletedId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
     }
     
     // 기타 컬렉션은 기본적으로 거부

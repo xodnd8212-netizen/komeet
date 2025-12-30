@@ -7,8 +7,10 @@ import '../../i18n/i18n.dart';
 import '../../models/profile.dart';
 import '../../services/profile_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/verification_service.dart';
 import '../../widgets/cached_image.dart';
 import 'profile_edit_dialog.dart';
+import 'verification_request_page.dart';
 import '../store/coin_store_dialog.dart';
 
 class ProfilePage extends StatefulWidget {
@@ -21,11 +23,22 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   UserProfile? _profile;
   bool _isLoading = true;
+  bool? _isVerified;
 
   @override
   void initState() {
     super.initState();
     _loadProfile();
+    _loadVerificationStatus();
+  }
+
+  Future<void> _loadVerificationStatus() async {
+    final verified = await VerificationService.isVerified();
+    if (mounted) {
+      setState(() {
+        _isVerified = verified;
+      });
+    }
   }
 
   Future<void> _loadProfile() async {
@@ -210,14 +223,73 @@ class _ProfilePageState extends State<ProfilePage> {
                               ],
                             ),
                             const SizedBox(height: 4),
-                            Text(
-                              '${p.age}세 · ${p.city}',
-                              style: const TextStyle(color: AppTheme.sub),
+                            Row(
+                              children: [
+                                Text(
+                                  '${p.age}세 · ${p.city}',
+                                  style: const TextStyle(color: AppTheme.sub),
+                                ),
+                                if (_isVerified == true) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.verified,
+                                          size: 12,
+                                          color: Colors.white,
+                                        ),
+                                        SizedBox(width: 2),
+                                        Text(
+                                          '인증됨',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                             const SizedBox(height: 16),
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.end,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
+                                if (_isVerified != true)
+                                  OutlinedButton.icon(
+                                    onPressed: () async {
+                                      await Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              const VerificationRequestPage(),
+                                        ),
+                                      );
+                                      await _loadVerificationStatus();
+                                    },
+                                    icon: const Icon(
+                                      Icons.verified_user,
+                                      size: 16,
+                                    ),
+                                    label: const Text('인증하기'),
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.blue,
+                                      side: const BorderSide(
+                                        color: Colors.blue,
+                                      ),
+                                    ),
+                                  ),
                                 TextButton.icon(
                                   onPressed: () async {
                                     final result =
@@ -471,7 +543,9 @@ class _ProfilePageState extends State<ProfilePage> {
                             .where('read', isEqualTo: false)
                             .snapshots(),
                         builder: (context, snapshot) {
-                          final unreadCount = snapshot.hasData ? snapshot.data!.docs.length : 0;
+                          final unreadCount = snapshot.hasData
+                              ? snapshot.data!.docs.length
+                              : 0;
                           return ListTile(
                             leading: Stack(
                               children: [

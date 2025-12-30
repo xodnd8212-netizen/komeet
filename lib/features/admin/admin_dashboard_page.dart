@@ -4,6 +4,7 @@ import '../../services/auth_service.dart';
 import '../../services/admin_service.dart';
 import '../../theme/theme.dart';
 import 'users_management_page.dart';
+import 'verification_review_page.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({super.key});
@@ -287,6 +288,29 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text('결제 관리 기능은 준비 중입니다.'),
+                              ),
+                            );
+                          }
+                        : () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('어드민 권한이 필요합니다.'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                          },
+                  ),
+                  _buildFeatureCard(
+                    icon: Icons.verified_user,
+                    title: '인증 검토',
+                    color: Colors.purple,
+                    onTap: _isAdmin
+                        ? () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const VerificationReviewPage(),
                               ),
                             );
                           }

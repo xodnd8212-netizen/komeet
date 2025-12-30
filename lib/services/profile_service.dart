@@ -3,6 +3,8 @@ import '../models/profile.dart';
 import '../utils/validators.dart';
 import '../utils/logger.dart';
 import 'auth_service.dart';
+import 'analytics_service.dart';
+import 'performance_service.dart';
 
 class ProfileService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -19,7 +21,11 @@ class ProfileService {
       final nameError = Validators.name(profile.name);
       if (nameError != null) throw Exception(nameError);
 
-      final ageError = Validators.age(profile.age);
+      // 나이 검증 (생년월일 기반 강화 검증)
+      final ageError = Validators.validateAgeWithBirthDate(
+        profile.age,
+        profile.birthDate,
+      );
       if (ageError != null) throw Exception(ageError);
 
       final bioError = Validators.bio(profile.bio);
@@ -48,17 +54,41 @@ class ProfileService {
           )
           .toMap();
 
+      final isNewProfile =
+          !(await _firestore.collection(_collection).doc(userId).get()).exists;
+
       await _firestore
           .collection(_collection)
           .doc(userId)
           .set(data, SetOptions(merge: true));
 
       AppLogger.info('프로필 저장 성공', {'userId': userId});
+
+      // 분석 이벤트: 프로필 완성
+      await AnalyticsService.logProfileCompleted(
+        photoCount: profile.photoUrls.length,
+        bioLength: profile.bio.length,
+        interestCount: profile.interests.length,
+      );
+
+      // 성능 메트릭 추가
+      PerformanceService.addMetric(
+        trace,
+        'photo_count',
+        profile.photoUrls.length,
+      );
+      PerformanceService.addMetric(trace, 'bio_length', profile.bio.length);
+
+      trace?.stop();
       return userId;
     } on FirebaseException catch (e, stackTrace) {
+      PerformanceService.addAttribute(trace, 'error', 'firebase_exception');
+      trace?.stop();
       AppLogger.error('프로필 저장 실패 (Firebase)', e, stackTrace);
       throw Exception('프로필 저장 실패: ${e.message}');
     } catch (e, stackTrace) {
+      PerformanceService.addAttribute(trace, 'error', e.toString());
+      trace?.stop();
       AppLogger.error('프로필 저장 중 오류', e, stackTrace);
       throw Exception('프로필 저장 중 오류가 발생했습니다: $e');
     }
@@ -92,11 +122,11 @@ class ProfileService {
   /// 프로필 완성도 점수 계산 (0-100)
   static int calculateCompletenessScore(UserProfile profile) {
     int score = 0;
-    
+
     // 사진 (최대 30점)
     final photoCount = profile.photoUrls.length;
     score += (photoCount / 6.0 * 30).clamp(0, 30).round();
-    
+
     // 자기소개 (최대 25점)
     final bioLength = profile.bio.length;
     if (bioLength >= 200) {
@@ -108,27 +138,47 @@ class ProfileService {
     } else if (bioLength >= 10) {
       score += 10;
     }
-    
+
     // 관심사 (최대 20점)
     final interestCount = profile.interests.length;
     score += (interestCount / 5.0 * 20).clamp(0, 20).round();
-    
+
     // 위치 정보 (최대 15점)
     if (profile.lat != null && profile.lng != null) {
       score += 15;
     }
-    
+
     // 인증 여부 (최대 10점)
     if (profile.isVerified) {
       score += 10;
     }
-    
+
     return score.clamp(0, 100);
   }
 
   /// 프로필 완성도가 충분한지 확인
   static bool isProfileComplete(UserProfile profile) {
     return calculateCompletenessScore(profile) >= 60;
+  }
+
+  /// 프로필 인증 상태 업데이트
+  static Future<void> updateVerificationStatus(
+    String userId,
+    bool isVerified,
+  ) async {
+    try {
+      await _firestore.collection(_collection).doc(userId).update({
+        'isVerified': isVerified,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+      AppLogger.info('프로필 인증 상태 업데이트', {
+        'userId': userId,
+        'isVerified': isVerified,
+      });
+    } catch (e, stackTrace) {
+      AppLogger.error('프로필 인증 상태 업데이트 실패', e, stackTrace);
+      throw Exception('인증 상태 업데이트 실패: $e');
+    }
   }
 
   static Future<List<UserProfile>> getNearbyProfiles({

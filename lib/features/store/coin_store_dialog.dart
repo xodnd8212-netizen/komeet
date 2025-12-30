@@ -84,7 +84,7 @@ class _CoinStoreDialogState extends State<CoinStoreDialog> {
       final coinsText = (result['coins'] ?? bundle.coins).toString();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('${coinsText}코인을 구매했습니다!'),
+          content: Text('$coinsText코인을 구매했습니다!'),
           backgroundColor: Colors.green,
         ),
       );
@@ -92,10 +92,7 @@ class _CoinStoreDialogState extends State<CoinStoreDialog> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          backgroundColor: Colors.red,
-          content: Text('구매 실패: $e'),
-        ),
+        SnackBar(backgroundColor: Colors.red, content: Text('구매 실패: $e')),
       );
     } finally {
       if (mounted) {
@@ -112,9 +109,7 @@ class _CoinStoreDialogState extends State<CoinStoreDialog> {
 
     return Dialog(
       backgroundColor: AppTheme.card,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 500, maxHeight: 700),
         child: Column(
@@ -214,7 +209,8 @@ class _CoinStoreDialogState extends State<CoinStoreDialog> {
                 child: Column(
                   children: [
                     ...bundles.map((bundle) {
-                      final totalCoins = bundle.coins +
+                      final totalCoins =
+                          bundle.coins +
                           (bundle.bonusRate > 0
                               ? (bundle.coins * bundle.bonusRate).toInt()
                               : 0);
@@ -291,7 +287,8 @@ class _CoinStoreDialogState extends State<CoinStoreDialog> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Row(
                                           children: [
@@ -306,13 +303,16 @@ class _CoinStoreDialogState extends State<CoinStoreDialog> {
                                             if (bundle.bonusRate > 0) ...[
                                               const SizedBox(width: 8),
                                               Container(
-                                                padding: const EdgeInsets.symmetric(
-                                                  horizontal: 6,
-                                                  vertical: 2,
-                                                ),
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2,
+                                                    ),
                                                 decoration: BoxDecoration(
-                                                  color: Colors.green.withValues(alpha: 0.2),
-                                                  borderRadius: BorderRadius.circular(4),
+                                                  color: Colors.green
+                                                      .withValues(alpha: 0.2),
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
                                                 ),
                                                 child: Text(
                                                   '+${(bundle.bonusRate * 100).toInt()}% 보너스',
@@ -362,7 +362,9 @@ class _CoinStoreDialogState extends State<CoinStoreDialog> {
                                             vertical: 8,
                                           ),
                                         ),
-                                        child: Text(isPurchasing ? '구매중...' : '구매'),
+                                        child: Text(
+                                          isPurchasing ? '구매중...' : '구매',
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -372,7 +374,7 @@ class _CoinStoreDialogState extends State<CoinStoreDialog> {
                           ],
                         ),
                       );
-                    }).toList(),
+                    }),
                     const SizedBox(height: 16),
                     Container(
                       padding: const EdgeInsets.all(16),
@@ -432,19 +434,12 @@ class _FeatureItem extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          const Icon(
-            Icons.check_circle,
-            color: Colors.green,
-            size: 16,
-          ),
+          const Icon(Icons.check_circle, color: Colors.green, size: 16),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
-                color: AppTheme.text,
-                fontSize: 13,
-              ),
+              style: const TextStyle(color: AppTheme.text, fontSize: 13),
             ),
           ),
         ],
@@ -452,4 +447,3 @@ class _FeatureItem extends StatelessWidget {
     );
   }
 }
-

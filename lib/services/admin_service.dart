@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../utils/logger.dart';
 import 'auth_service.dart';
+import 'account_ban_service.dart';
 
 class AdminService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -14,11 +15,11 @@ class AdminService {
 
       final doc = await _firestore.collection(_collection).doc(user.uid).get();
       final isAdmin = doc.exists && (doc.data()?['isAdmin'] == true);
-      
+
       if (isAdmin) {
         AppLogger.info('어드민 확인', {'userId': user.uid});
       }
-      
+
       return isAdmin;
     } catch (e, stackTrace) {
       AppLogger.error('어드민 확인 실패', e, stackTrace);
@@ -144,6 +145,29 @@ class AdminService {
     } catch (e) {
       throw Exception('프로필 삭제 실패: $e');
     }
+  }
+
+  /// 계정 정지 (어드민 전용)
+  static Future<bool> banUser({
+    required String userId,
+    required String reason,
+    int? durationDays,
+  }) async {
+    return await AccountBanService.banAccount(
+      userId: userId,
+      reason: reason,
+      durationDays: durationDays,
+    );
+  }
+
+  /// 계정 정지 해제 (어드민 전용)
+  static Future<bool> unbanUser(String userId) async {
+    return await AccountBanService.unbanAccount(userId);
+  }
+
+  /// 정지된 계정 목록 가져오기 (어드민 전용)
+  static Future<List<Map<String, dynamic>>> getBannedAccounts() async {
+    return await AccountBanService.getBannedAccounts();
   }
 
   /// 모든 매칭 가져오기 (어드민 전용)

@@ -119,3 +119,4 @@ keytool -list -v -keystore android\app\komeet-release-key.jks -alias komeet -sto
 
 SHA-1 값을 복사하여 Firebase Console에 등록하세요.
 
+

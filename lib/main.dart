@@ -16,6 +16,8 @@ import 'services/push_notifications.dart';
 import 'services/auth_service.dart';
 import 'services/prefs.dart';
 import 'services/offline_service.dart';
+import 'services/error_service.dart';
+import 'services/performance_service.dart';
 import 'features/auth/login_page.dart';
 import 'features/admin/admin_login_page.dart';
 import 'features/admin/admin_dashboard_page.dart';
@@ -135,17 +137,28 @@ void main() async {
 
     AppLogger.info('Firebase 초기화 완료');
 
+    // Crashlytics 초기화 (Firebase 초기화 후)
+    await ErrorService.init();
+
+    // Performance Monitoring 초기화
+    await PerformanceService.init();
+
     // 오프라인 지속성 활성화
     await OfflineService.enablePersistence();
 
     // FCM 초기화 (Firebase 초기화 후)
     await PushNotificationService.init();
 
-    // 로그인 상태 변경 시 FCM 토큰 저장
+    // 로그인 상태 변경 시 FCM 토큰 저장 및 Crashlytics 사용자 ID 설정
     FirebaseAuth.instance.authStateChanges().listen((User? user) async {
       if (user != null) {
         // 로그인 시 FCM 토큰 다시 저장
         await PushNotificationService.saveTokenIfLoggedIn();
+        // Crashlytics 사용자 ID 설정
+        await ErrorService.setUserId(user.uid);
+      } else {
+        // 로그아웃 시 사용자 ID 제거
+        await ErrorService.setUserId('');
       }
     });
   } catch (e) {

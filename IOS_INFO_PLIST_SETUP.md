@@ -114,3 +114,4 @@
 - URL Scheme에 `naverlogin`이 추가되었는지 확인
 - 네이버 개발자 센터에서 iOS 앱이 등록되었는지 확인
 - `LSApplicationQueriesSchemes`에 네이버 관련 스킴이 추가되었는지 확인
+

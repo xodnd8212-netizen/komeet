@@ -11,6 +11,7 @@ class UserProfile {
   final List<String> photoUrls;
   final double maxDistanceKm;
   final bool isVerified; // 프로필 인증 여부
+  final DateTime? birthDate; // 생년월일 (미성년자 방지 검증용)
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -27,6 +28,7 @@ class UserProfile {
     this.photoUrls = const [],
     this.maxDistanceKm = 500, // 일본-한국 매칭을 위해 기본값 500km
     this.isVerified = false,
+    this.birthDate,
     this.createdAt,
     this.updatedAt,
   });
@@ -44,6 +46,7 @@ class UserProfile {
       'photoUrls': photoUrls,
       'maxDistanceKm': maxDistanceKm,
       'isVerified': isVerified,
+      'birthDate': birthDate?.toIso8601String(),
       'createdAt': createdAt?.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
     };
@@ -65,6 +68,9 @@ class UserProfile {
           ? (map['maxDistanceKm'] as num).toDouble()
           : 500, // 일본-한국 매칭을 위해 기본값 500km
       isVerified: map['isVerified'] as bool? ?? false,
+      birthDate: map['birthDate'] != null
+          ? DateTime.parse(map['birthDate'])
+          : null,
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'])
           : null,
@@ -87,6 +93,7 @@ class UserProfile {
     List<String>? photoUrls,
     double? maxDistanceKm,
     bool? isVerified,
+    DateTime? birthDate,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -103,9 +110,9 @@ class UserProfile {
       photoUrls: photoUrls ?? this.photoUrls,
       maxDistanceKm: maxDistanceKm ?? this.maxDistanceKm,
       isVerified: isVerified ?? this.isVerified,
+      birthDate: birthDate ?? this.birthDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }
-
